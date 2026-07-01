@@ -12,7 +12,7 @@ This repository builds a Debian 12 desktop container with:
 The default image name used by the helper scripts is:
 
 ```text
-ghcr.io/dingp/debian:12-vnc-novnc
+ghcr.io/dingp/vnc-novnc-container:debian-12-main
 ```
 
 ## Build
@@ -20,7 +20,7 @@ ghcr.io/dingp/debian:12-vnc-novnc
 At NERSC, build with `podman-hpc`:
 
 ```sh
-podman-hpc build -f Dockerfile -t ghcr.io/dingp/debian:12-vnc-novnc .
+podman-hpc build -f Dockerfile -t ghcr.io/dingp/vnc-novnc-container:debian-12-main .
 ```
 
 ## Run the Desktop

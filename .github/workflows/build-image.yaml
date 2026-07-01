@@ -38,9 +38,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/debian
+          images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=12-vnc-novnc
+            type=ref,event=branch,prefix=debian-12-
+            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
 
       - name: Build and push image

@@ -85,7 +85,7 @@ This displays the proxied noVNC URL and reads the one-time VNC password from `/r
 The sample kernel config is `kernels/vnc-novnc/vnc-novnc.yaml`:
 
 ```yaml
-image: ghcr.io/dingp/debian:12-vnc-novnc
+image: ghcr.io/dingp/vnc-novnc-container:debian-12-main
 userns: keep-id
 keep_groups: true
 

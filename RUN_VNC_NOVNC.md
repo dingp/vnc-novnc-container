@@ -6,7 +6,7 @@
 
 The helper script:
 
-- Starts `ghcr.io/dingp/debian:12-vnc-novnc` with `podman-hpc`.
+- Starts `ghcr.io/dingp/vnc-novnc-container:debian-12-main` with `podman-hpc`.
 - Generates a one-time VNC password at runtime.
 - Stores the password in a temporary `0600` file and mounts that file read-only into the container.
 - Avoids putting the VNC password in shell history or in the `podman-hpc run` command line.
@@ -42,7 +42,7 @@ python3 -m vnc_novnc --config scripts/run-vnc-novnc.yaml
 The script prints output like:
 
 ```text
-Image: ghcr.io/dingp/debian:12-vnc-novnc
+Image: ghcr.io/dingp/vnc-novnc-container:debian-12-main
 noVNC: https://jupyter.nersc.gov/user/your-user-name/perlmutter-login-node/proxy/49967/vnc.html?port=443&host=jupyter.nersc.gov&path=user%2Fyour-user-name%2Fperlmutter-login-node%2Fproxy%2F49967
 One-time VNC password: AbC123xY
 VNC server port is not exposed on the host.
@@ -102,7 +102,7 @@ Common settings:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `IMAGE` | `ghcr.io/dingp/debian:12-vnc-novnc` | Container image to run. |
+| `IMAGE` | `ghcr.io/dingp/vnc-novnc-container:debian-12-main` | Container image to run. |
 | `HOST_NOVNC_ADDR` | `127.0.0.1` | Host address used for the noVNC port publication. |
 | `HOST_NOVNC_PORT` | random | Host port for noVNC. |
 | `NOVNC_PORT` | `6080` | noVNC port inside the container. |
