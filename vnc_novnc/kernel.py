@@ -68,9 +68,9 @@ def add_volume_args(run_args, volumes, skip_container_paths):
 def load_defaults(config_path):
     try:
         config = normalize_config(load_yaml_config(config_path))
+        return build_defaults(config)
     except (OSError, ValueError) as exc:
         raise SystemExit("Configuration error: {}".format(exc))
-    return build_defaults(config)
 
 
 def build_parser(defaults):
@@ -99,6 +99,12 @@ def build_parser(defaults):
     parser.add_argument("--jupyter-proxy-prefix", default=defaults["jupyter_proxy_prefix"])
     parser.add_argument("--jupyter-proxy-user", default=defaults["jupyter_proxy_user"])
     parser.add_argument("--jupyter-proxy-server", default=defaults["jupyter_proxy_server"])
+    parser.add_argument(
+        "--pull-policy",
+        choices=("always", "missing", "never", "newer"),
+        default=defaults["pull_policy"],
+        help="Image pull policy passed to podman-hpc run as --pull=POLICY.",
+    )
     parser.add_argument("-v", "--volume", action="append", default=list(defaults["volume"]))
     parser.add_argument("--mount", action="append", default=list(defaults["mount"]))
     parser.add_argument("-e", "--env", action="append", default=list(defaults["env"]))
@@ -160,6 +166,9 @@ def build_podman_args(args, password_file, access_url, host_novnc_port):
         "-e",
         "VNC_PORT={}".format(args.vnc_port),
     ]
+
+    if args.pull_policy:
+        run_args.append("--pull={}".format(args.pull_policy))
 
     if args.userns_keep_id:
         run_args.append("--userns=keep-id")

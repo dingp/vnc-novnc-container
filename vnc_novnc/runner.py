@@ -40,6 +40,7 @@ VALID_CONFIG_KEYS = set(
         "jupyter_proxy_prefix",
         "jupyter_proxy_user",
         "jupyter_proxy_server",
+        "pull_policy",
         "volume",
         "mount",
         "env",
@@ -240,6 +241,7 @@ def build_defaults(config):
         "jupyter_proxy_prefix": "",
         "jupyter_proxy_user": os.environ.get("USER", ""),
         "jupyter_proxy_server": "",
+        "pull_policy": "newer",
         "volume": [],
         "mount": [],
         "env": [],
@@ -269,6 +271,7 @@ def build_defaults(config):
         ),
         "jupyter_proxy_user": os.environ.get("JUPYTER_PROXY_USER"),
         "jupyter_proxy_server": os.environ.get("JUPYTER_PROXY_SERVER"),
+        "pull_policy": os.environ.get("PODMAN_PULL_POLICY"),
         "userns": os.environ.get("PODMAN_USERNS"),
     }
     for key, value in env_defaults.items():
@@ -282,6 +285,11 @@ def build_defaults(config):
 
     if not defaults["vnc_host_port"]:
         defaults["vnc_host_port"] = defaults["vnc_port"]
+
+    if defaults["pull_policy"] not in ("", "always", "missing", "never", "newer"):
+        raise ValueError(
+            "pull_policy must be one of: always, missing, never, newer"
+        )
 
     return defaults
 
@@ -337,6 +345,9 @@ def add_podman_run_args(args, password_file):
         "-e",
         "VNC_PORT={}".format(args.vnc_port),
     ]
+
+    if args.pull_policy:
+        run_args.append("--pull={}".format(args.pull_policy))
 
     if args.expose_vnc:
         run_args.extend(
@@ -410,10 +421,9 @@ def parse_args(argv):
     config_args, remaining_argv = config_parser.parse_known_args(argv)
     try:
         config = normalize_config(load_yaml_config(config_args.config))
+        defaults = build_defaults(config)
     except (OSError, ValueError) as exc:
         raise SystemExit("Configuration error: {}".format(exc))
-
-    defaults = build_defaults(config)
 
     parser = argparse.ArgumentParser(
         description="Run the Debian VNC/noVNC desktop image with a generated one-time VNC password.",
@@ -453,6 +463,12 @@ def parse_args(argv):
     )
     parser.add_argument("--jupyter-proxy-user", default=defaults["jupyter_proxy_user"])
     parser.add_argument("--jupyter-proxy-server", default=defaults["jupyter_proxy_server"])
+    parser.add_argument(
+        "--pull-policy",
+        choices=("always", "missing", "never", "newer"),
+        default=defaults["pull_policy"],
+        help="Image pull policy passed to podman-hpc run as --pull=POLICY.",
+    )
 
     parser.add_argument(
         "-v",

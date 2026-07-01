@@ -89,6 +89,7 @@ YAML keys use the long option names with underscores instead of dashes. For exam
 ```yaml
 userns: keep-id
 keep_groups: true
+pull_policy: newer
 
 volume:
   - "${HOME}:${HOME}:rw"
@@ -118,12 +119,20 @@ Python helper container options:
 | `--mount SPEC` | Add a Podman `--mount` spec. May be repeated. |
 | `-e`, `--env NAME[=VALUE]` | Pass an environment variable into the container. May be repeated. |
 | `--config FILE` | Read default values from a YAML config file. |
+| `--pull-policy POLICY` | Pass `--pull=POLICY` to `podman-hpc run`. Choices are `newer`, `always`, `missing`, and `never`; default is `newer`. |
 | `--userns=keep-id` | Pass `--userns=keep-id` to `podman-hpc`. |
 | `--userns-keep-id` | Shorthand for `--userns=keep-id`. |
 | `--group-add=keep-groups` | Pass `--group-add=keep-groups` to `podman-hpc`. |
 | `--keep-groups` | Shorthand for `--group-add=keep-groups`. |
 | `--dry-run` | Print the generated command without running the container. |
 | `--` | Pass following arguments directly to `podman-hpc run` before the image name. |
+
+Pull policy:
+
+- `newer` checks the registry and pulls the image only when the remote tag is newer than the local copy. This keeps the image fresh while avoiding unnecessary downloads.
+- `always` pulls the image every time before running. This is the strongest freshness policy, but it makes startup slower and depends on registry availability for every launch.
+- `missing` pulls only when the image is not already present locally.
+- `never` never pulls and requires the image to already exist locally.
 
 Jupyter URL settings:
 

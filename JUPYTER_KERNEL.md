@@ -94,6 +94,7 @@ The sample kernel config is `kernels/vnc-novnc/vnc-novnc.yaml`:
 image: ghcr.io/dingp/vnc-novnc-container:debian-12-main
 userns: keep-id
 keep_groups: true
+pull_policy: newer
 
 volume:
   - "${SCRATCH}:${SCRATCH}:rw"
@@ -103,3 +104,5 @@ volume:
 The wrapper also passes selected host environment variables into the container, including `USER`, `HOME`, `SCRATCH`, `CFS`, `JUPYTERHUB_SERVICE_PREFIX`, and `JUPYTER_PROXY_*`.
 
 `$HOME` and `/tmp` are not listed in the kernel YAML because `podman-hpc --jupyter` handles those mounts.
+
+The default `pull_policy: newer` makes the kernel wrapper pass `--pull=newer` to `podman-hpc run`. `newer` checks the registry and pulls only when the remote tag is newer than the local image. `always` pulls on every kernel start, which guarantees a registry check and fresh download attempt each time, but can slow startup and fail if the registry is temporarily unavailable.

@@ -33,6 +33,8 @@ scripts/run-vnc-novnc.py --config scripts/run-vnc-novnc.yaml
 
 The helper generates a one-time VNC password, chooses a noVNC host port, does not expose the raw VNC port by default, and prints a Jupyter Server Proxy URL when it can determine the Jupyter user/server prefix.
 
+The sample configs use `pull_policy: newer`, so `podman-hpc run` checks for a newer image tag before starting without forcing a full pull every time.
+
 ## Jupyter Kernel
 
 Install the Python package locally:
