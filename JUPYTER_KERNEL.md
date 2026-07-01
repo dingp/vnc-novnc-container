@@ -4,9 +4,38 @@ This repository includes a Jupyter kernelspec for running the Debian VNC/noVNC i
 
 The kernelspec follows the NERSC `podman-hpc` container-kernel pattern: the host launches `podman-hpc run --rm --jupyter ...`, and the container starts `python3 -m ipykernel_launcher -f {connection_file}`. The `--jupyter` flag handles the Jupyter connection path and the basic `$HOME` and `/tmp` mounts.
 
-## Install the Package
+## Bootstrap the Kernel
 
 From the repository root:
+
+```sh
+scripts/install-jupyter-kernel.sh
+```
+
+The bootstrap script installs the Python package in editable mode for the current user and copies the sample kernelspec into:
+
+```text
+${HOME}/.local/share/jupyter/kernels/vnc-novnc
+```
+
+Useful options:
+
+- `--force`: replace an existing `vnc-novnc` kernelspec.
+- `--source-wrapper`: make the installed kernel wrapper import `vnc_novnc` directly from this checkout.
+- `--no-pip-install`: copy the kernelspec without running `pip install`.
+- `--prefix DIR`: install under `DIR/share/jupyter/kernels`.
+- `--name NAME`: use a different kernelspec directory name.
+- `--display-name NAME`: use a different display name in Jupyter.
+
+For development from a checkout:
+
+```sh
+scripts/install-jupyter-kernel.sh --source-wrapper --force
+```
+
+## Manual Package Install
+
+The package can also be installed directly:
 
 ```sh
 python3 -m pip install --user -e .
@@ -19,32 +48,7 @@ run-vnc-novnc
 vnc-novnc-kernel-wrapper
 ```
 
-The package can also be imported from notebooks:
-
-```python
-import vnc_novnc
-
-vnc_novnc.display_connection()
-```
-
-## Install the Kernelspec
-
-Install the sample kernelspec into your Jupyter kernels directory:
-
-```sh
-mkdir -p "${HOME}/.local/share/jupyter/kernels/vnc-novnc"
-cp kernels/vnc-novnc/kernel.json "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
-cp kernels/vnc-novnc/kernel-wrapper "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
-cp kernels/vnc-novnc/vnc-novnc.yaml "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
-```
-
-Validate the kernelspec JSON:
-
-```sh
-jq . "${HOME}/.local/share/jupyter/kernels/vnc-novnc/kernel.json"
-```
-
-Restart or refresh JupyterLab if the new kernel does not appear immediately.
+Restart or refresh JupyterLab if the new kernel does not appear immediately after running the bootstrap script.
 
 ## What the Wrapper Does
 

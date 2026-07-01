@@ -38,16 +38,13 @@ The helper generates a one-time VNC password, chooses a noVNC host port, does no
 Install the Python package locally:
 
 ```sh
-python3 -m pip install --user -e .
+scripts/install-jupyter-kernel.sh
 ```
 
-Install the sample kernelspec:
+For development from a checkout without relying on the editable pip install, use:
 
 ```sh
-mkdir -p "${HOME}/.local/share/jupyter/kernels/vnc-novnc"
-cp kernels/vnc-novnc/kernel.json "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
-cp kernels/vnc-novnc/kernel-wrapper "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
-cp kernels/vnc-novnc/vnc-novnc.yaml "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
+scripts/install-jupyter-kernel.sh --source-wrapper --force
 ```
 
 Then select `Debian VNC/noVNC (podman-hpc)` in JupyterLab and run:
