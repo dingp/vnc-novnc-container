@@ -1,0 +1,10 @@
+# Default NERSC-oriented configuration for scripts/run-vnc-novnc.py.
+# Values in strings are expanded from the host environment at runtime.
+
+userns: keep-id
+keep_groups: true
+
+volume:
+  - "${HOME}:${HOME}:rw"
+  - "${SCRATCH}:${SCRATCH}:rw"
+  - "${CFS}:${CFS}:rw"

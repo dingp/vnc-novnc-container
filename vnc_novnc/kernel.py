@@ -1,0 +1,236 @@
+"""Kernel wrapper for running the VNC/noVNC image with podman-hpc."""
+
+import argparse
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+
+from .runner import (
+    DEFAULT_IMAGE,
+    DEFAULT_NOVNC_PORT,
+    DEFAULT_PASSWORD_LENGTH,
+    DEFAULT_VNC_PORT,
+    build_defaults,
+    jupyter_proxy_url,
+    load_yaml_config,
+    normalize_config,
+    random_password,
+    shell_join,
+)
+
+
+DEFAULT_PASSTHROUGH_ENVS = (
+    "USER",
+    "HOME",
+    "SCRATCH",
+    "CFS",
+    "JUPYTERHUB_SERVICE_PREFIX",
+    "JUPYTER_PROXY_BASE_URL",
+    "JUPYTER_PROXY_HOST",
+    "JUPYTER_PROXY_HTTPS_PORT",
+    "JUPYTER_PROXY_PREFIX",
+    "JUPYTER_PROXY_USER",
+    "JUPYTER_PROXY_SERVER",
+)
+
+
+def available_tcp_port(host):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return str(sock.getsockname()[1])
+
+
+def volume_container_path(volume):
+    parts = volume.split(":", 2)
+    if len(parts) < 2:
+        return ""
+    return parts[1]
+
+
+def add_volume_args(run_args, volumes, skip_container_paths):
+    seen = set()
+    for volume in volumes:
+        if "$" in volume:
+            print("Skipping unresolved volume spec: {}".format(volume), file=sys.stderr)
+            continue
+        container_path = volume_container_path(volume)
+        if container_path in skip_container_paths:
+            continue
+        if volume in seen:
+            continue
+        seen.add(volume)
+        run_args.extend(["-v", volume])
+
+
+def load_defaults(config_path):
+    try:
+        config = normalize_config(load_yaml_config(config_path))
+    except (OSError, ValueError) as exc:
+        raise SystemExit("Configuration error: {}".format(exc))
+    return build_defaults(config)
+
+
+def build_parser(defaults):
+    parser = argparse.ArgumentParser(
+        description="Run the VNC/noVNC image as a Jupyter kernel with podman-hpc.",
+        epilog="Kernel arguments are normally supplied by Jupyter as -f {connection_file}.",
+    )
+    parser.add_argument(
+        "--config",
+        default=os.environ.get("VNC_NOVNC_CONFIG", ""),
+        help="YAML configuration file with defaults for the podman-hpc launch.",
+    )
+    parser.add_argument("--image", default=defaults["image"])
+    parser.add_argument("--podman-hpc", default=defaults["podman_hpc"])
+    parser.add_argument("--host-novnc-addr", default=defaults["host_novnc_addr"])
+    parser.add_argument("--host-novnc-port", default=defaults["host_novnc_port"])
+    parser.add_argument("--novnc-port", default=defaults["novnc_port"])
+    parser.add_argument("--vnc-port", default=defaults["vnc_port"])
+    parser.add_argument("--password-length", type=int, default=defaults["password_length"])
+    parser.add_argument("--jupyter-proxy-base-url", default=defaults["jupyter_proxy_base_url"])
+    parser.add_argument("--jupyter-proxy-host", default=defaults["jupyter_proxy_host"])
+    parser.add_argument(
+        "--jupyter-proxy-https-port",
+        default=defaults["jupyter_proxy_https_port"],
+    )
+    parser.add_argument("--jupyter-proxy-prefix", default=defaults["jupyter_proxy_prefix"])
+    parser.add_argument("--jupyter-proxy-user", default=defaults["jupyter_proxy_user"])
+    parser.add_argument("--jupyter-proxy-server", default=defaults["jupyter_proxy_server"])
+    parser.add_argument("-v", "--volume", action="append", default=list(defaults["volume"]))
+    parser.add_argument("--mount", action="append", default=list(defaults["mount"]))
+    parser.add_argument("-e", "--env", action="append", default=list(defaults["env"]))
+    parser.add_argument("--userns", default=defaults["userns"])
+    parser.add_argument("--userns-keep-id", action="store_true", default=defaults["userns_keep_id"])
+    parser.add_argument("--group-add", action="append", default=list(defaults["group_add"]))
+    parser.add_argument("--keep-groups", action="store_true", default=defaults["keep_groups"])
+    parser.add_argument("--dry-run", action="store_true", default=defaults["dry_run"])
+    parser.add_argument("-f", "--connection-file", default="")
+    parser.add_argument("kernel_args", nargs=argparse.REMAINDER)
+    return parser
+
+
+def parse_args(argv):
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", default=os.environ.get("VNC_NOVNC_CONFIG", ""))
+    config_args, _ = config_parser.parse_known_args(argv)
+    defaults = load_defaults(config_args.config)
+    return build_parser(defaults).parse_args(argv)
+
+
+def kernel_args(args):
+    command = ["python3", "-m", "ipykernel_launcher"]
+    if args.connection_file:
+        command.extend(["-f", args.connection_file])
+    passed = list(args.kernel_args)
+    if passed and passed[0] == "--":
+        passed = passed[1:]
+    command.extend(passed)
+    return command
+
+
+def build_podman_args(args, password_file, access_url, host_novnc_port):
+    run_args = [
+        args.podman_hpc,
+        "run",
+        "--rm",
+        "--jupyter",
+        "-p",
+        "{}:{}:{}".format(args.host_novnc_addr, host_novnc_port, args.novnc_port),
+        "-v",
+        "{}:/run/secrets/vnc-password:ro".format(password_file),
+        "-e",
+        "VNC_PASSWORD_PLAIN_FILE=/run/secrets/vnc-password",
+        "-e",
+        "VNC_PASSWORD_FILE=/tmp/vnc-auth/passwd",
+        "-e",
+        "VNC_NOVNC_PASSWORD_FILE=/run/secrets/vnc-password",
+        "-e",
+        "VNC_NOVNC_ACCESS_URL={}".format(access_url),
+        "-e",
+        "VNC_NOVNC_HOST_ADDR={}".format(args.host_novnc_addr),
+        "-e",
+        "VNC_NOVNC_HOST_PORT={}".format(host_novnc_port),
+        "-e",
+        "VNC_NOVNC_IMAGE={}".format(args.image),
+        "-e",
+        "NOVNC_PORT={}".format(args.novnc_port),
+        "-e",
+        "VNC_PORT={}".format(args.vnc_port),
+    ]
+
+    if args.userns_keep_id:
+        run_args.append("--userns=keep-id")
+    elif args.userns:
+        run_args.append("--userns={}".format(args.userns))
+
+    group_add = list(args.group_add)
+    if args.keep_groups and "keep-groups" not in group_add:
+        group_add.append("keep-groups")
+    for group in group_add:
+        run_args.append("--group-add={}".format(group))
+
+    for env_name in DEFAULT_PASSTHROUGH_ENVS:
+        if env_name in os.environ:
+            run_args.extend(["-e", env_name])
+    for env_spec in args.env:
+        run_args.extend(["-e", env_spec])
+
+    skip_paths = set(("/tmp", os.environ.get("HOME", "")))
+    add_volume_args(run_args, args.volume, skip_paths)
+
+    for mount in args.mount:
+        run_args.extend(["--mount", mount])
+
+    run_args.append(args.image)
+    run_args.extend(["vnc-novnc-jupyter-kernel"])
+    run_args.extend(kernel_args(args))
+    return run_args
+
+
+def print_connection(access_url, password, host_novnc_port):
+    print("VNC/noVNC container kernel", file=sys.stderr)
+    print("noVNC: {}".format(access_url), file=sys.stderr)
+    print("One-time VNC password: {}".format(password), file=sys.stderr)
+    print("Host noVNC port: {}".format(host_novnc_port), file=sys.stderr)
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    args = parse_args(argv)
+
+    host_novnc_port = args.host_novnc_port or available_tcp_port(args.host_novnc_addr)
+    proxy_args = SimpleNamespace(
+        jupyter_proxy_prefix=args.jupyter_proxy_prefix,
+        jupyter_proxy_user=args.jupyter_proxy_user,
+        jupyter_proxy_server=args.jupyter_proxy_server,
+        jupyter_proxy_base_url=args.jupyter_proxy_base_url,
+        jupyter_proxy_https_port=args.jupyter_proxy_https_port,
+        jupyter_proxy_host=args.jupyter_proxy_host,
+    )
+    access_url = jupyter_proxy_url(proxy_args, host_novnc_port)
+    if not access_url:
+        access_url = "http://{}:{}/vnc.html".format(args.host_novnc_addr, host_novnc_port)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        password_file = os.path.join(tmpdir, "vnc-password")
+        password = random_password(args.password_length)
+        with open(password_file, "w") as handle:
+            handle.write(password + "\n")
+        os.chmod(password_file, 0o600)
+
+        run_args = build_podman_args(args, password_file, access_url, host_novnc_port)
+        print_connection(access_url, password, host_novnc_port)
+
+        if args.dry_run:
+            print(shell_join(run_args))
+            return 0
+
+        return subprocess.call(run_args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-start}" != "start" ]]; then
+    exec "$@"
+fi
+
+normalize_bool() {
+    case "${1,,}" in
+        1|true|yes|y|on) printf 'yes' ;;
+        0|false|no|n|off) printf 'no' ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+append_words() {
+    local words="$1"
+    shift
+    local -n out="$1"
+    local extra=()
+
+    if [[ -n "$words" ]]; then
+        read -r -a extra <<< "$words"
+        out+=( "${extra[@]}" )
+    fi
+}
+
+display=":${VNC_DISPLAY}"
+vnc_port="${VNC_PORT}"
+novnc_vnc_port="${NOVNC_VNC_PORT:-$vnc_port}"
+vnc_localhost="$(normalize_bool "${VNC_LOCALHOST}")"
+
+ensure_writable_dir() {
+    local dir="$1"
+    mkdir -p "${dir}" >/dev/null 2>&1 && [[ -w "${dir}" ]]
+}
+
+runtime_home="${VNC_RUNTIME_HOME:-${HOME:-/root}}"
+if ! ensure_writable_dir "${runtime_home}"; then
+    runtime_home="/tmp/vnc-home-$(id -u)"
+    if ! ensure_writable_dir "${runtime_home}"; then
+        printf 'Unable to create writable VNC runtime home: %s\n' "${runtime_home}" >&2
+        exit 1
+    fi
+fi
+
+export HOME="${runtime_home}"
+vnc_dir="${HOME}/.vnc"
+fvwm_dir="${HOME}/.fvwm"
+mkdir -p "${vnc_dir}" "${fvwm_dir}"
+chmod 700 "${vnc_dir}"
+
+if [[ -n "${VNC_PASSWORD_PLAIN_FILE:-}" && "${VNC_PASSWORD_FILE}" == "/root/.vnc/passwd" ]]; then
+    VNC_PASSWORD_FILE="/tmp/vnc-auth/passwd"
+elif [[ "${VNC_PASSWORD_FILE}" == "/root/.vnc/passwd" && ! -w "/root" ]]; then
+    VNC_PASSWORD_FILE="${vnc_dir}/passwd"
+fi
+
+if [[ "${VNC_XSTARTUP}" == "/root/.vnc/xstartup" && ! -w "/root" ]]; then
+    VNC_XSTARTUP="${vnc_dir}/xstartup"
+fi
+
+if [[ ! -e "${fvwm_dir}/config" && -r /etc/vnc-novnc/fvwm3-config ]]; then
+    cp /etc/vnc-novnc/fvwm3-config "${fvwm_dir}/config"
+fi
+
+if [[ ! -x "${VNC_XSTARTUP}" ]]; then
+    cat > "${VNC_XSTARTUP}" <<'EOF'
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+xsetroot -solid "#2e3440" >/dev/null 2>&1 || true
+
+if command -v xfce4-terminal >/dev/null 2>&1; then
+    xfce4-terminal >/dev/null 2>&1 &
+elif command -v xterm >/dev/null 2>&1; then
+    xterm >/dev/null 2>&1 &
+fi
+
+if command -v dbus-launch >/dev/null 2>&1; then
+    exec dbus-launch --exit-with-session sh -lc "${VNC_DESKTOP_CMD:-fvwm3}"
+fi
+
+exec sh -lc "${VNC_DESKTOP_CMD:-fvwm3}"
+EOF
+    chmod 0755 "${VNC_XSTARTUP}"
+fi
+
+security_types="${VNC_SECURITY_TYPES}"
+if [[ "${security_types,,}" != "none" ]]; then
+    if [[ -n "${VNC_PASSWORD_PLAIN_FILE:-}" || ! -s "${VNC_PASSWORD_FILE}" ]]; then
+        vnc_password="${VNC_PASSWORD:-}"
+        if [[ -n "${VNC_PASSWORD_PLAIN_FILE:-}" ]]; then
+            if [[ ! -r "${VNC_PASSWORD_PLAIN_FILE}" ]]; then
+                printf 'VNC_PASSWORD_PLAIN_FILE is set but not readable: %s\n' "${VNC_PASSWORD_PLAIN_FILE}" >&2
+                exit 1
+            fi
+            IFS= read -r vnc_password < "${VNC_PASSWORD_PLAIN_FILE}"
+        fi
+
+        if [[ -z "${vnc_password}" ]]; then
+            printf 'No VNC password provided and %s does not exist\n' "${VNC_PASSWORD_FILE}" >&2
+            exit 1
+        fi
+        mkdir -p "$(dirname "${VNC_PASSWORD_FILE}")"
+        printf '%s\n' "${vnc_password}" | vncpasswd -f > "${VNC_PASSWORD_FILE}"
+        chmod 0600 "${VNC_PASSWORD_FILE}"
+    fi
+fi
+
+if [[ -z "${VNC_PASSWORD_PLAIN_FILE:-}" && "${VNC_PASSWORD:-}" == "changeme" && "${security_types,,}" != "none" ]]; then
+    printf 'WARNING: using default VNC_PASSWORD=changeme; set VNC_PASSWORD or mount VNC_PASSWORD_FILE for real use.\n' >&2
+fi
+
+vncserver -kill "${display}" >/dev/null 2>&1 || true
+rm -f "/tmp/.X${VNC_DISPLAY}-lock" "/tmp/.X11-unix/X${VNC_DISPLAY}"
+
+vnc_args=(
+    "${display}"
+    -geometry "${VNC_GEOMETRY}"
+    -depth "${VNC_DEPTH}"
+    -rfbport "${vnc_port}"
+    -localhost "${vnc_localhost}"
+    -SecurityTypes "${security_types}"
+)
+
+if [[ "${security_types,,}" != "none" ]]; then
+    vnc_args+=( -PasswordFile "${VNC_PASSWORD_FILE}" )
+fi
+
+append_words "${VNC_EXTRA_ARGS}" vnc_args
+
+printf 'Starting VNC server on display %s, port %s, geometry %s, depth %s\n' \
+    "${display}" "${vnc_port}" "${VNC_GEOMETRY}" "${VNC_DEPTH}"
+vncserver "${vnc_args[@]}"
+
+cleanup() {
+    if [[ -n "${websockify_pid:-}" ]]; then
+        kill "${websockify_pid}" >/dev/null 2>&1 || true
+    fi
+    vncserver -kill "${display}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+novnc_args=(
+    --web="${NOVNC_WEB}"
+    "${NOVNC_LISTEN}:${NOVNC_PORT}"
+    "${NOVNC_VNC_HOST}:${novnc_vnc_port}"
+)
+append_words "${NOVNC_EXTRA_ARGS}" novnc_args
+
+printf 'Starting noVNC on http://%s:%s/vnc.html -> %s:%s\n' \
+    "${NOVNC_LISTEN}" "${NOVNC_PORT}" "${NOVNC_VNC_HOST}" "${novnc_vnc_port}"
+websockify "${novnc_args[@]}" &
+websockify_pid="$!"
+wait "${websockify_pid}"

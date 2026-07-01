@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$#" -eq 0 ]]; then
+    set -- python3 -m ipykernel_launcher
+fi
+
+/usr/local/bin/vnc-novnc-entrypoint start &
+vnc_pid="$!"
+kernel_pid=""
+
+cleanup() {
+    if [[ -n "${kernel_pid}" ]]; then
+        kill "${kernel_pid}" >/dev/null 2>&1 || true
+    fi
+    kill "${vnc_pid}" >/dev/null 2>&1 || true
+    wait "${vnc_pid}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+sleep 2
+if ! kill -0 "${vnc_pid}" >/dev/null 2>&1; then
+    wait "${vnc_pid}"
+fi
+
+printf 'VNC/noVNC access URL: %s\n' "${VNC_NOVNC_ACCESS_URL:-}" >&2
+printf 'Use vnc_novnc.display_connection() in a notebook cell to show the access URL and one-time password.\n' >&2
+
+"$@" &
+kernel_pid="$!"
+wait "${kernel_pid}"
