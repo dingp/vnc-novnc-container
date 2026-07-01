@@ -1,12 +1,19 @@
-From debian:12
+FROM debian:12
 
 ENV DEBIAN_FRONTEND noninteractive
 
+ARG TARGETARCH
 ARG SSHPROXY_VERSION=2.1.2
-ARG SSHPROXY_ARCH=linux-x86_64
-ARG SSHPROXY_URL=https://portal.nersc.gov/cfs/mfa/sshproxy-${SSHPROXY_VERSION}-${SSHPROXY_ARCH}.tar.gz
+ARG SSHPROXY_ARCH
 
 RUN \
+    set -eu; \
+    case "${SSHPROXY_ARCH:-${TARGETARCH:-amd64}}" in \
+        amd64|x86_64|linux-x86_64) sshproxy_arch=linux-x86_64 ;; \
+        arm64|aarch64|linux-aarch64) sshproxy_arch=linux-aarch64 ;; \
+        *) echo "Unsupported sshproxy architecture: ${SSHPROXY_ARCH:-${TARGETARCH:-}}" >&2; exit 1 ;; \
+    esac; \
+    sshproxy_url="https://portal.nersc.gov/cfs/mfa/sshproxy-${SSHPROXY_VERSION}-${sshproxy_arch}.tar.gz"; \
     apt-get update        &&   \
     apt-get install --yes --no-install-recommends \
         ca-certificates       \
@@ -38,7 +45,7 @@ RUN \
         xfce4-terminal        \
         chromium              \
         chromium-sandbox  &&  \
-    curl --fail --location --show-error "${SSHPROXY_URL}" --output /tmp/sshproxy.tar.gz && \
+    curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc /root/.fvwm  &&   \

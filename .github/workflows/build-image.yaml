@@ -13,42 +13,90 @@ on:
       - pyproject.toml
       - .github/workflows/build-image.yaml
 
+  pull_request:
+    paths:
+      - Dockerfile
+      - container/**
+      - vnc_novnc/**
+      - scripts/**
+      - pyproject.toml
+      - .github/workflows/build-image.yaml
+
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  CACHE_SCOPE: debian-12
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build_and_push_image:
     name: Build and push image
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
 
-      - name: Log in to the container registry
-        uses: docker/login-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch,prefix=debian-12-
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+      - name: Build image
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
+          push: false
+          load: true
+          tags: vnc-novnc-container:ci
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+
+      - name: Smoke test image
+        run: |
+          docker run --rm --entrypoint /bin/sh vnc-novnc-container:ci -lc '
+            python3 -c "import vnc_novnc"
+            test -x /usr/local/bin/vnc-novnc-entrypoint
+            test -x /usr/local/bin/vnc-novnc-jupyter-kernel
+            test -x /usr/local/bin/sshproxy
+          '
+
+      - name: Build and push multi-arch image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
