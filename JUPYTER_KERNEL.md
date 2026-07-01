@@ -74,7 +74,9 @@ Inside the container, `vnc-novnc-jupyter-kernel` starts VNC/noVNC in the backgro
 
 ## Notebook Usage
 
-After selecting the `Debian VNC/noVNC (podman-hpc)` kernel, run:
+After selecting the `Debian VNC/noVNC (podman-hpc)` kernel, the noVNC URL and one-time password are displayed automatically in the output area of the first notebook cell you run.
+
+You can also show the connection details manually at any time:
 
 ```python
 import vnc_novnc

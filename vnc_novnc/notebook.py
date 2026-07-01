@@ -57,3 +57,31 @@ def display_connection():
         )
     )
     return info
+
+
+def install_auto_display():
+    """Display noVNC connection details once, attached to the next executed cell."""
+
+    try:
+        from IPython import get_ipython
+    except ImportError:
+        return False
+
+    shell = get_ipython()
+    if shell is None:
+        return False
+
+    state = {"shown": False}
+
+    def _show_once(*args, **kwargs):
+        if state["shown"]:
+            return
+        state["shown"] = True
+        try:
+            shell.events.unregister("pre_run_cell", _show_once)
+        except ValueError:
+            pass
+        display_connection()
+
+    shell.events.register("pre_run_cell", _show_once)
+    return True

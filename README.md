@@ -50,6 +50,12 @@ scripts/install-jupyter-kernel.sh --source-wrapper --force
 Then select `Debian VNC/noVNC (podman-hpc)` in JupyterLab and run:
 
 ```python
+1 + 1
+```
+
+The noVNC URL and one-time password are displayed automatically in the first cell output. To show them again manually:
+
+```python
 import vnc_novnc
 
 vnc_novnc.display_connection()
