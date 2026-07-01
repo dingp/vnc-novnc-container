@@ -91,7 +91,7 @@ ENV \
     NOVNC_EXTRA_ARGS= \
     PYTHONPATH=/opt/vnc-novnc
 
-EXPOSE 5901 6080
+EXPOSE 6080
 
 ENTRYPOINT ["/usr/local/bin/vnc-novnc-entrypoint"]
 CMD ["start"]

@@ -2,10 +2,12 @@
 
 import argparse
 import os
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
+import time
 from types import SimpleNamespace
 
 from .runner import (
@@ -37,10 +39,23 @@ DEFAULT_PASSTHROUGH_ENVS = (
 )
 
 
+class ShutdownRequested(Exception):
+    def __init__(self, signum):
+        super().__init__("shutdown requested by signal {}".format(signum))
+        self.signum = signum
+
+
 def available_tcp_port(host):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind((host, 0))
         return str(sock.getsockname()[1])
+
+
+def safe_container_name():
+    user = os.environ.get("USER", "user")
+    safe_user = "".join(ch if ch.isalnum() or ch in "_.-" else "-" for ch in user)
+    suffix = random_password(8).lower()
+    return "vnc-novnc-{}-{}-{}".format(safe_user, os.getpid(), suffix)
 
 
 def volume_container_path(volume):
@@ -137,12 +152,14 @@ def kernel_args(args):
     return command
 
 
-def build_podman_args(args, password_file, access_url, host_novnc_port):
+def build_podman_args(args, password_file, access_url, host_novnc_port, container_name):
     run_args = [
         args.podman_hpc,
         "run",
         "--rm",
         "--jupyter",
+        "--name",
+        container_name,
         "-p",
         "{}:{}:{}".format(args.host_novnc_addr, host_novnc_port, args.novnc_port),
         "-v",
@@ -206,6 +223,69 @@ def print_connection(access_url, password, host_novnc_port):
     print("Host noVNC port: {}".format(host_novnc_port), file=sys.stderr)
 
 
+def terminate_process_group(process, timeout=10):
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except OSError:
+        process.terminate()
+    deadline = time.time() + timeout
+    while process.poll() is None and time.time() < deadline:
+        time.sleep(0.1)
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except OSError:
+            process.kill()
+
+
+def cleanup_container(podman_hpc, container_name):
+    for command in (
+        [podman_hpc, "stop", "--time", "10", container_name],
+        [podman_hpc, "rm", "--force", container_name],
+    ):
+        subprocess.call(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+def run_podman_kernel(run_args, podman_hpc, container_name):
+    handled_signals = [
+        signum
+        for signum in (
+            signal.SIGINT,
+            signal.SIGTERM,
+            getattr(signal, "SIGHUP", None),
+        )
+        if signum is not None
+    ]
+    previous_handlers = {}
+
+    def request_shutdown(signum, frame):
+        raise ShutdownRequested(signum)
+
+    for signum in handled_signals:
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, request_shutdown)
+
+    process = subprocess.Popen(run_args, start_new_session=True)
+    try:
+        return process.wait()
+    except ShutdownRequested as exc:
+        cleanup_container(podman_hpc, container_name)
+        terminate_process_group(process)
+        return 128 + exc.signum
+    finally:
+        if process.poll() is None:
+            cleanup_container(podman_hpc, container_name)
+            terminate_process_group(process)
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -231,14 +311,21 @@ def main(argv=None):
             handle.write(password + "\n")
         os.chmod(password_file, 0o600)
 
-        run_args = build_podman_args(args, password_file, access_url, host_novnc_port)
+        container_name = safe_container_name()
+        run_args = build_podman_args(
+            args,
+            password_file,
+            access_url,
+            host_novnc_port,
+            container_name,
+        )
         print_connection(access_url, password, host_novnc_port)
 
         if args.dry_run:
             print(shell_join(run_args))
             return 0
 
-        return subprocess.call(run_args)
+        return run_podman_kernel(run_args, args.podman_hpc, container_name)
 
 
 if __name__ == "__main__":

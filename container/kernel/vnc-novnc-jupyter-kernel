@@ -20,7 +20,7 @@ cleanup() {
         rm -rf "${ipython_dir}" >/dev/null 2>&1 || true
     fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM HUP
 
 sleep 2
 if ! kill -0 "${vnc_pid}" >/dev/null 2>&1; then

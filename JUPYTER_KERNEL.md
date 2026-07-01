@@ -65,12 +65,17 @@ The Python wrapper:
 - Writes the password to a temporary `0600` file on the host.
 - Mounts that file read-only at `/run/secrets/vnc-password` inside the container.
 - Publishes noVNC on the selected host port.
+- Names the container and explicitly stops/removes it if the host wrapper receives
+  `INT`, `TERM`, or `HUP`, which covers console-style shutdowns that may
+  terminate the wrapper before the in-container kernel exits cleanly.
 - Uses `podman-hpc run --rm --jupyter`.
 - Passes `--userns=keep-id` and `--group-add=keep-groups` from the YAML config.
 - Mounts `$SCRATCH` and `$CFS` from the YAML config.
 - Passes non-secret noVNC connection metadata into the container.
 
 Inside the container, `vnc-novnc-jupyter-kernel` starts VNC/noVNC in the background and then starts `ipykernel`.
+The image declares only the noVNC port as exposed metadata; raw VNC remains
+internal unless a runner explicitly publishes it.
 
 ## Notebook Usage
 
