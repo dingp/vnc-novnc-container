@@ -56,6 +56,15 @@ RUN \
         xfce4-terminal \
         zlib-devel && \
     ln -sf /usr/lib/vncserver /usr/local/bin/vncserver && \
+    mkdir -p /etc/X11/xinit && \
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'if [ "$#" -gt 0 ]; then' \
+        '    exec "$@"' \
+        'fi' \
+        'exec startxfce4' \
+        > /etc/X11/xinit/Xsession && \
+    chmod 0755 /etc/X11/xinit/Xsession && \
     curl --fail --location --show-error \
         --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 300 --connect-timeout 30 \
         "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \

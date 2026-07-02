@@ -25,6 +25,35 @@ append_words() {
     fi
 }
 
+vncserver_display_only() {
+    [[ -r /usr/lib/vncserver ]] && grep -q 'usage: .* <display>' /usr/lib/vncserver
+}
+
+write_display_only_vnc_config() {
+    local config_file="${vnc_dir}/config"
+    local tmp_config="${config_file}.tmp"
+
+    if [[ -f "${config_file}" ]]; then
+        grep -Eiv '^[[:space:]]*(geometry|depth|rfbport|localhost|securitytypes|rfbauth)[[:space:]]*=' \
+            "${config_file}" > "${tmp_config}" || true
+    else
+        : > "${tmp_config}"
+    fi
+
+    {
+        printf 'geometry=%s\n' "${VNC_GEOMETRY}"
+        printf 'depth=%s\n' "${VNC_DEPTH}"
+        printf 'rfbport=%s\n' "${vnc_port}"
+        printf 'localhost=%s\n' "${vnc_localhost}"
+        printf 'securitytypes=%s\n' "${security_types}"
+        if [[ "${security_types,,}" != "none" ]]; then
+            printf 'rfbauth=%s\n' "${VNC_PASSWORD_FILE}"
+        fi
+    } >> "${tmp_config}"
+
+    mv "${tmp_config}" "${config_file}"
+}
+
 display=":${VNC_DISPLAY}"
 vnc_port="${VNC_PORT}"
 novnc_vnc_port="${NOVNC_VNC_PORT:-$vnc_port}"
@@ -133,7 +162,12 @@ append_words "${VNC_EXTRA_ARGS}" vnc_args
 
 printf 'Starting VNC server on display %s, port %s, geometry %s, depth %s\n' \
     "${display}" "${vnc_port}" "${VNC_GEOMETRY}" "${VNC_DEPTH}"
-vncserver "${vnc_args[@]}"
+if vncserver_display_only; then
+    write_display_only_vnc_config
+    vncserver "${display}"
+else
+    vncserver "${vnc_args[@]}"
+fi
 
 cleanup() {
     if [[ -n "${websockify_pid:-}" ]]; then
