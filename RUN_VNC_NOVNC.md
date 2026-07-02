@@ -172,6 +172,13 @@ Use the openSUSE Leap 15.6 XFCE image:
 scripts/run-vnc-novnc.py --image ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main
 ```
 
+Use another published variant:
+
+```sh
+scripts/run-vnc-novnc.py --image ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main
+scripts/run-vnc-novnc.py --image ghcr.io/dingp/vnc-novnc-container:alma-9-xfce-main
+```
+
 Run outside Jupyter but still print a Jupyter proxy URL:
 
 ```sh

@@ -11,17 +11,24 @@ The default Debian 12 image includes:
 - GUI terminal, `tmux`, and `vim`
 - Python `ipykernel` support for use as a Jupyter kernel
 
-There is also an openSUSE Leap 15.6 variant with XFCE instead of fvwm3.
+Additional variants cover Debian, Ubuntu, AlmaLinux, and openSUSE bases with
+fvwm3 or XFCE desktops where those packages are available.
 
-The default image name used by the helper scripts is the Debian build:
+The default image name used by the helper scripts is the Debian fvwm3 build:
 
 ```text
 ghcr.io/dingp/vnc-novnc-container:debian-12-main
 ```
 
-The openSUSE image is published as:
+Published branch tags include:
 
 ```text
+ghcr.io/dingp/vnc-novnc-container:debian-12-main
+ghcr.io/dingp/vnc-novnc-container:debian-12-xfce-main
+ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-fvwm3-main
+ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main
+ghcr.io/dingp/vnc-novnc-container:alma-9-fvwm3-main
+ghcr.io/dingp/vnc-novnc-container:alma-9-xfce-main
 ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main
 ```
 
@@ -33,9 +40,14 @@ At NERSC, build with `podman-hpc`:
 podman-hpc build -f images/debian-12/fvwm3/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:debian-12-main .
 ```
 
-Build the openSUSE Leap 15.6 XFCE image with:
+Build another variant by selecting its Dockerfile:
 
 ```sh
+podman-hpc build -f images/debian-12/xfce/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:debian-12-xfce-main .
+podman-hpc build -f images/ubuntu-24.04/fvwm3/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-fvwm3-main .
+podman-hpc build -f images/ubuntu-24.04/xfce/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main .
+podman-hpc build -f images/alma-9/fvwm3/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:alma-9-fvwm3-main .
+podman-hpc build -f images/alma-9/xfce/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:alma-9-xfce-main .
 podman-hpc build -f images/opensuse-15.6/xfce/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main .
 ```
 
