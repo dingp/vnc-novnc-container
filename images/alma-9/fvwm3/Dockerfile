@@ -73,7 +73,9 @@ RUN \
         xfce4-terminal \
         zlib-devel && \
     python3 -m pip install --no-cache-dir ipykernel 'meson>=1.5.1' && \
-    curl --fail --location --show-error "https://github.com/fvwmorg/fvwm3/releases/download/${FVWM3_VERSION}/fvwm3-${FVWM3_VERSION}.tar.gz" --output /tmp/fvwm3.tar.gz && \
+    curl --fail --location --show-error \
+        --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 300 --connect-timeout 30 \
+        "https://github.com/fvwmorg/fvwm3/releases/download/${FVWM3_VERSION}/fvwm3-${FVWM3_VERSION}.tar.gz" --output /tmp/fvwm3.tar.gz && \
     mkdir -p /tmp/fvwm3-src && \
     tar -xzf /tmp/fvwm3.tar.gz -C /tmp/fvwm3-src --strip-components=1 && \
     cd /tmp/fvwm3-src && \
@@ -81,7 +83,9 @@ RUN \
     python3 -m mesonbuild.mesonmain compile -C compile && \
     python3 -m mesonbuild.mesonmain install -C compile && \
     test -x /usr/local/bin/fvwm3 && \
-    curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
+    curl --fail --location --show-error \
+        --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 300 --connect-timeout 30 \
+        "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc /root/.fvwm && \

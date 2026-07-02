@@ -83,7 +83,9 @@ RUN \
         xfdesktop4 \
         xfwm4 \
         zlib1g-dev && \
-    curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
+    curl --fail --location --show-error \
+        --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 300 --connect-timeout 30 \
+        "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc && \
