@@ -79,13 +79,28 @@ Install the Python package locally:
 scripts/install-jupyter-kernel.sh
 ```
 
+This installs the default Debian 12 fvwm3 kernelspec as
+`vnc-novnc-debian12-fvwm3` with display name `VNC-debian12-fvwm3`.
+Select another variant by passing `DISTRO DESKTOP`:
+
+```sh
+scripts/install-jupyter-kernel.sh ubuntu24.04 xfce --force
+scripts/install-jupyter-kernel.sh opensuse15.6 xfce --force
+```
+
+Install all supported distro/desktop kernelspecs:
+
+```sh
+scripts/install-jupyter-kernel.sh --all --force
+```
+
 For development from a checkout without relying on the editable pip install, use:
 
 ```sh
 scripts/install-jupyter-kernel.sh --source-wrapper --force
 ```
 
-Then select `Debian VNC/noVNC (podman-hpc)` in JupyterLab and run:
+Then select a `VNC-DISTRO-DESKTOP` kernel in JupyterLab and run:
 
 ```python
 1 + 1

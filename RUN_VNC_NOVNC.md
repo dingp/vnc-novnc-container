@@ -251,7 +251,7 @@ cp kernels/vnc-novnc/kernel-wrapper "${HOME}/.local/share/jupyter/kernels/vnc-no
 cp kernels/vnc-novnc/vnc-novnc.yaml "${HOME}/.local/share/jupyter/kernels/vnc-novnc/"
 ```
 
-Then select `Debian VNC/noVNC (podman-hpc)` in Jupyter and run:
+Then select the installed kernel, such as `VNC-debian12-fvwm3`, in Jupyter and run:
 
 ```python
 import vnc_novnc

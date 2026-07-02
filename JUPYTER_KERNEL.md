@@ -1,6 +1,6 @@
 # VNC/noVNC Jupyter Kernel
 
-This repository includes a Jupyter kernelspec for running the Debian VNC/noVNC image as a Python kernel with `podman-hpc`.
+This repository includes Jupyter kernelspecs for running VNC/noVNC desktop images as Python kernels with `podman-hpc`.
 
 The kernelspec follows the NERSC `podman-hpc` container-kernel pattern: the host launches `podman-hpc run --rm --jupyter ...`, and the container starts `python3 -m ipykernel_launcher -f {connection_file}`. The `--jupyter` flag handles the Jupyter connection path and the basic `$HOME` and `/tmp` mounts.
 
@@ -12,25 +12,43 @@ From the repository root:
 scripts/install-jupyter-kernel.sh
 ```
 
-The bootstrap script installs the Python package in editable mode for the current user and copies the sample kernelspec into:
+The bootstrap script installs the Python package in editable mode for the current user and copies the selected sample kernelspec into:
 
 ```text
-${HOME}/.local/share/jupyter/kernels/vnc-novnc
+${HOME}/.local/share/jupyter/kernels/vnc-novnc-DISTRO-DESKTOP
 ```
 
 Useful options:
 
-- `--force`: replace an existing `vnc-novnc` kernelspec.
+- `--force`: replace an existing kernelspec directory.
+- `DISTRO DESKTOP`: select the image variant, for example `ubuntu24.04 xfce` or `opensuse15.6 xfce`.
+- `--distro DISTRO` and `--desktop DESKTOP`: select the same variant with explicit options.
+- `--all`: install one kernelspec for every supported distro/desktop combination.
+- `--list-variants`: print supported distro/desktop combinations.
 - `--source-wrapper`: make the installed kernel wrapper import `vnc_novnc` directly from this checkout.
 - `--no-pip-install`: copy the kernelspec without running `pip install`.
 - `--prefix DIR`: install under `DIR/share/jupyter/kernels`.
-- `--name NAME`: use a different kernelspec directory name.
-- `--display-name NAME`: use a different display name in Jupyter.
+- `--name NAME`: override the default kernelspec directory name, `vnc-novnc-DISTRO-DESKTOP`.
+- `--display-name NAME`: override the default Jupyter display name, `VNC-DISTRO-DESKTOP`.
 
 For development from a checkout:
 
 ```sh
 scripts/install-jupyter-kernel.sh --source-wrapper --force
+```
+
+For example, to install an Ubuntu 24.04 XFCE kernel:
+
+```sh
+scripts/install-jupyter-kernel.sh ubuntu24.04 xfce --force
+```
+
+This creates `vnc-novnc-ubuntu24.04-xfce` with display name `VNC-ubuntu24.04-xfce`.
+
+To install every supported kernel variant:
+
+```sh
+scripts/install-jupyter-kernel.sh --all --force
 ```
 
 ## Manual Package Install
@@ -81,7 +99,7 @@ internal unless a runner explicitly publishes it.
 
 ## Notebook Usage
 
-After selecting the `Debian VNC/noVNC (podman-hpc)` kernel, the noVNC URL and one-time password are displayed automatically in the output area of the first notebook cell you run.
+After selecting a `VNC-DISTRO-DESKTOP` kernel, the noVNC URL and one-time password are displayed automatically in the output area of the first notebook cell you run.
 
 You can also show the connection details manually at any time:
 
