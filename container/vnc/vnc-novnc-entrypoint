@@ -92,6 +92,10 @@ fi
 if [[ ! -e "${fvwm_dir}/config" && -r /etc/vnc-novnc/fvwm3-config ]]; then
     cp /etc/vnc-novnc/fvwm3-config "${fvwm_dir}/config"
 fi
+if [[ -w "${fvwm_dir}/config" ]]; then
+    sed -i 's#exec chrome#exec /usr/local/bin/chromium#g' "${fvwm_dir}/config"
+    sed -i 's#exec chromium#exec /usr/local/bin/chromium#g' "${fvwm_dir}/config"
+fi
 
 if [[ ! -x "${VNC_XSTARTUP}" ]]; then
     cat > "${VNC_XSTARTUP}" <<'EOF'
