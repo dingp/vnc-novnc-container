@@ -21,13 +21,20 @@ RUN \
         dbus-x11 \
         file \
         findutils \
+        gcc \
+        gdb \
         git \
         gzip \
         iproute \
         less \
+        make \
         net-tools \
+        nfs-utils \
+        nmap \
         novnc \
         openssh-clients \
+        openssh-server \
+        openssl-devel \
         procps-ng \
         python3 \
         python3-pip \
@@ -37,8 +44,11 @@ RUN \
         tigervnc \
         tigervnc-server \
         tmux \
-        vim-minimal \
+        tcpdump \
+        vim \
+        wireshark-cli \
         wget \
+        which \
         xorg-x11-server-utils \
         xorg-x11-xauth \
         xterm \
@@ -47,7 +57,8 @@ RUN \
         xfce4-settings \
         xfce4-terminal \
         xfdesktop \
-        xfwm4 && \
+        xfwm4 \
+        zlib-devel && \
     python3 -m pip install --no-cache-dir ipykernel && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \

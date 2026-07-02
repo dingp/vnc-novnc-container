@@ -48,10 +48,15 @@ RUN \
         dbus-x11 \
         file \
         findutils \
+        gcc \
+        gdb \
         git \
         iproute2 \
         less \
+        make \
         net-tools \
+        nfs-common \
+        nmap \
         novnc \
         openssh-client \
         procps \
@@ -62,6 +67,8 @@ RUN \
         tigervnc-standalone-server \
         tigervnc-tools \
         tmux \
+        tcpdump \
+        tshark \
         vim \
         wget \
         websockify \
@@ -74,7 +81,8 @@ RUN \
         xfce4-settings \
         xfce4-terminal \
         xfdesktop4 \
-        xfwm4 && \
+        xfwm4 \
+        zlib1g-dev && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \

@@ -15,8 +15,6 @@ RUN \
     microdnf -y install dnf dnf-plugins-core epel-release && \
     dnf config-manager --set-enabled crb && \
     dnf -y install --allowerasing --setopt=install_weak_deps=False \
-        autoconf \
-        automake \
         ca-certificates \
         bash \
         chromium \
@@ -25,13 +23,13 @@ RUN \
         file \
         findutils \
         gcc \
+        gdb \
         git \
         gzip \
         iproute \
         less \
         libevent-devel \
         libpng-devel \
-        libtool \
         libX11-devel \
         libXcursor-devel \
         libXext-devel \
@@ -40,10 +38,17 @@ RUN \
         libXpm-devel \
         libXrandr-devel \
         libXrender-devel \
+        libXt-devel \
+        libxkbcommon-devel \
         make \
         net-tools \
+        ninja-build \
+        nfs-utils \
+        nmap \
         novnc \
         openssh-clients \
+        openssh-server \
+        openssl-devel \
         pkgconf-pkg-config \
         procps-ng \
         python3 \
@@ -55,26 +60,32 @@ RUN \
         tigervnc \
         tigervnc-server \
         tmux \
-        vim-minimal \
+        tcpdump \
+        vim \
+        wireshark-cli \
         wget \
+        which \
+        xorg-x11-util-macros \
         xorg-x11-server-utils \
         xorg-x11-xauth \
+        xorg-x11-xtrans-devel \
         xterm \
-        xfce4-terminal && \
-    python3 -m pip install --no-cache-dir ipykernel && \
+        xfce4-terminal \
+        zlib-devel && \
+    python3 -m pip install --no-cache-dir ipykernel 'meson>=1.5.1' && \
     curl --fail --location --show-error "https://github.com/fvwmorg/fvwm3/releases/download/${FVWM3_VERSION}/fvwm3-${FVWM3_VERSION}.tar.gz" --output /tmp/fvwm3.tar.gz && \
     mkdir -p /tmp/fvwm3-src && \
     tar -xzf /tmp/fvwm3.tar.gz -C /tmp/fvwm3-src --strip-components=1 && \
     cd /tmp/fvwm3-src && \
-    ./configure --prefix=/usr/local && \
-    make -j"$(nproc)" && \
-    make install && \
+    python3 -m mesonbuild.mesonmain setup compile --prefix=/usr/local -Dgolang=disabled && \
+    python3 -m mesonbuild.mesonmain compile -C compile && \
+    python3 -m mesonbuild.mesonmain install -C compile && \
+    test -x /usr/local/bin/fvwm3 && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc /root/.fvwm && \
     sed -i 's#^\(root:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:\).*#\1/bin/bash#' /etc/passwd && \
-    dnf -y remove autoconf automake gcc libtool make pkgconf-pkg-config '*-devel' || true && \
     dnf clean all && \
     rm -rf /tmp/fvwm3.tar.gz /tmp/fvwm3-src /tmp/sshproxy.tar.gz /var/cache/dnf
 

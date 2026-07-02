@@ -21,11 +21,16 @@ RUN \
         dbus-1-x11 \
         file \
         findutils \
+        gcc \
+        gdb \
         git \
         gzip \
         iproute2 \
         less \
+        make \
         net-tools \
+        nfs-client \
+        nmap \
         novnc \
         openssh-clients \
         patterns-xfce-xfce \
@@ -37,15 +42,19 @@ RUN \
         thunar \
         tigervnc \
         tmux \
+        tcpdump \
         vim \
         wget \
+        which \
+        wireshark \
         xauth \
         xorg-x11-Xvnc \
         xset \
         xsetroot \
         xterm \
         xfce4-session \
-        xfce4-terminal && \
+        xfce4-terminal \
+        zlib-devel && \
     ln -sf /usr/lib/vncserver /usr/local/bin/vncserver && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \

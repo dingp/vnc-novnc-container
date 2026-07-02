@@ -23,10 +23,15 @@ RUN \
         file                  \
         findutils             \
         fvwm3                 \
+        gcc                   \
+        gdb                   \
         git                   \
         iproute2              \
         less                  \
+        make                  \
         net-tools             \
+        nfs-common            \
+        nmap                  \
         novnc                 \
         openssh-client        \
         procps                \
@@ -37,6 +42,8 @@ RUN \
         tigervnc-standalone-server \
         tigervnc-tools        \
         tmux                  \
+        tcpdump               \
+        tshark                \
         vim                   \
         wget                  \
         websockify            \
@@ -45,6 +52,7 @@ RUN \
         xfonts-base           \
         xterm                 \
         xfce4-terminal        \
+        zlib1g-dev            \
         chromium              \
         chromium-sandbox  &&  \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
