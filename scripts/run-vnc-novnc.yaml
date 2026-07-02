@@ -3,7 +3,7 @@
 
 userns: keep-id
 keep_groups: true
-pull_policy: newer
+pull_policy: missing
 
 volume:
   - "${HOME}:${HOME}:rw"

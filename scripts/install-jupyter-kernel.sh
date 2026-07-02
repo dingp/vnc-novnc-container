@@ -30,6 +30,9 @@ Options:
   --no-pip-install        Do not run "python3 -m pip install --user -e .".
   --source-wrapper        Install a wrapper that imports vnc_novnc from this checkout.
   --all                   Install one kernelspec for every supported variant.
+  --prepull               Run "podman-hpc pull IMAGE" for each installed image.
+  --podman-hpc COMMAND    podman-hpc command used by --prepull.
+                          Default: ${PODMAN_HPC:-podman-hpc}
   --list-variants         Print supported DISTRO/DESKTOP combinations.
   --force                 Replace an existing kernelspec directory.
   -h, --help              Show this help.
@@ -126,11 +129,14 @@ pip_install=1
 source_wrapper=0
 force=0
 all_variants=0
+prepull=0
+podman_hpc="${PODMAN_HPC:-podman-hpc}"
 kernel_name_set=0
 display_name_set=0
 distro_set=0
 desktop_set=0
 positionals=()
+prepulled_images=()
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -169,6 +175,14 @@ while [[ "$#" -gt 0 ]]; do
         --all)
             all_variants=1
             shift
+            ;;
+        --prepull)
+            prepull=1
+            shift
+            ;;
+        --podman-hpc)
+            podman_hpc="${2:?--podman-hpc requires a value}"
+            shift 2
             ;;
         --list-variants)
             list_variants
@@ -241,6 +255,31 @@ cleanup() {
 }
 trap cleanup EXIT
 
+image_already_prepulled() {
+    local candidate="$1"
+    local pulled_image
+
+    for pulled_image in "${prepulled_images[@]}"; do
+        if [[ "${pulled_image}" == "${candidate}" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+prepull_image() {
+    local pull_image="$1"
+
+    if image_already_prepulled "${pull_image}"; then
+        return 0
+    fi
+
+    printf 'Pre-pulling image: %s\n' "${pull_image}"
+    "${podman_hpc}" pull "${pull_image}"
+    prepulled_images+=("${pull_image}")
+}
+
 install_one() {
     local install_distro="$1"
     local install_desktop="$2"
@@ -251,6 +290,10 @@ install_one() {
     distro="$(canonical_distro "${install_distro}")"
     desktop="$(canonical_desktop "${install_desktop}")"
     set_variant_metadata
+
+    if [[ "${prepull}" -eq 1 ]]; then
+        prepull_image "${image}"
+    fi
 
     if [[ -z "${install_kernel_name}" ]]; then
         install_kernel_name="vnc-novnc-${variant_slug}"
@@ -278,6 +321,7 @@ import json
 import sys
 
 kernel_json, kernel_yaml, display_name, image = sys.argv[1:5]
+pull_policy = "missing"
 with open(kernel_json) as handle:
     data = json.load(handle)
 data["display_name"] = display_name
@@ -285,18 +329,19 @@ with open(kernel_json, "w") as handle:
     json.dump(data, handle, indent=2)
     handle.write("\n")
 
+def set_yaml_scalar(lines, key, value):
+    replacement = f"{key}: {value}\n"
+    for index, line in enumerate(lines):
+        if line.startswith(f"{key}:"):
+            lines[index] = replacement
+            return
+    lines.insert(0, replacement)
+
 with open(kernel_yaml) as handle:
     lines = handle.readlines()
 
-updated = False
-for index, line in enumerate(lines):
-    if line.startswith("image:"):
-        lines[index] = f"image: {image}\n"
-        updated = True
-        break
-
-if not updated:
-    lines.insert(0, f"image: {image}\n")
+set_yaml_scalar(lines, "image", image)
+set_yaml_scalar(lines, "pull_policy", pull_policy)
 
 with open(kernel_yaml, "w") as handle:
     handle.writelines(lines)

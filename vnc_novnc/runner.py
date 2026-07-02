@@ -263,7 +263,7 @@ def build_defaults(config):
         "jupyter_proxy_prefix": "",
         "jupyter_proxy_user": os.environ.get("USER", ""),
         "jupyter_proxy_server": "",
-        "pull_policy": "newer",
+        "pull_policy": "missing",
         "volume": [],
         "mount": [],
         "env": [],

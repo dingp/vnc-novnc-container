@@ -69,7 +69,7 @@ scripts/run-vnc-novnc.py --config scripts/run-vnc-novnc.yaml
 
 The helper generates a one-time VNC password, chooses a noVNC host port, does not expose the raw VNC port by default, and prints a Jupyter Server Proxy URL when it can determine the Jupyter user/server prefix.
 
-The sample configs use `pull_policy: newer`, so `podman-hpc run` checks for a newer image tag before starting without forcing a full pull every time.
+The sample configs use `pull_policy: missing`, so kernel startup does not spend time checking for a newer image when the image is already present on the node.
 
 ## Jupyter Kernel
 
@@ -93,6 +93,15 @@ Install all supported distro/desktop kernelspecs:
 ```sh
 scripts/install-jupyter-kernel.sh --all --force
 ```
+
+Pre-pull the image for the kernelspec while installing it:
+
+```sh
+scripts/install-jupyter-kernel.sh ubuntu24.04 xfce --prepull --force
+scripts/install-jupyter-kernel.sh --all --prepull --force
+```
+
+Pre-pulling is useful on nodes that do not already have the image in local `podman-hpc` storage; otherwise Jupyter may time out while the kernel process is still pulling and preparing the image.
 
 For development from a checkout without relying on the editable pip install, use:
 
