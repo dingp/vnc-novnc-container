@@ -1,6 +1,8 @@
 # VNC/noVNC Desktop Container for NERSC
 
-This repository builds a Debian 12 desktop container with:
+This repository builds VNC/noVNC desktop containers for NERSC.
+
+The default Debian 12 image includes:
 
 - TigerVNC and noVNC
 - Chromium browser
@@ -9,10 +11,18 @@ This repository builds a Debian 12 desktop container with:
 - GUI terminal, `tmux`, and `vim`
 - Python `ipykernel` support for use as a Jupyter kernel
 
-The default image name used by the helper scripts is:
+There is also an openSUSE Leap 15.6 variant with XFCE instead of fvwm3.
+
+The default image name used by the helper scripts is the Debian build:
 
 ```text
 ghcr.io/dingp/vnc-novnc-container:debian-12-main
+```
+
+The openSUSE image is published as:
+
+```text
+ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main
 ```
 
 ## Build
@@ -20,8 +30,22 @@ ghcr.io/dingp/vnc-novnc-container:debian-12-main
 At NERSC, build with `podman-hpc`:
 
 ```sh
-podman-hpc build -f Dockerfile -t ghcr.io/dingp/vnc-novnc-container:debian-12-main .
+podman-hpc build -f images/debian-12/fvwm3/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:debian-12-main .
 ```
+
+Build the openSUSE Leap 15.6 XFCE image with:
+
+```sh
+podman-hpc build -f images/opensuse-15.6/xfce/Dockerfile -t ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main .
+```
+
+## Repository Layout
+
+- `images/<base-os>/<desktop>/Dockerfile`: image variants.
+- `container/`: scripts and desktop config shared by image variants.
+- `vnc_novnc/`: host and in-container Python helpers.
+- `kernels/`: sample Jupyter kernelspec.
+- `scripts/`: install and run helpers.
 
 ## Run the Desktop
 

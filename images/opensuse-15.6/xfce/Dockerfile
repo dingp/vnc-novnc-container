@@ -1,6 +1,4 @@
-FROM debian:12
-
-ENV DEBIAN_FRONTEND noninteractive
+FROM opensuse/leap:15.6
 
 ARG TARGETARCH
 ARG SSHPROXY_VERSION=2.1.2
@@ -14,53 +12,54 @@ RUN \
         *) echo "Unsupported sshproxy architecture: ${SSHPROXY_ARCH:-${TARGETARCH:-}}" >&2; exit 1 ;; \
     esac; \
     sshproxy_url="https://portal.nersc.gov/cfs/mfa/sshproxy-${SSHPROXY_VERSION}-${sshproxy_arch}.tar.gz"; \
-    apt-get update        &&   \
-    apt-get install --yes --no-install-recommends \
-        ca-certificates       \
-        curl                  \
-        dbus-x11              \
-        file                  \
-        findutils             \
-        fvwm3                 \
-        git                   \
-        iproute2              \
-        less                  \
-        net-tools             \
-        novnc                 \
-        openssh-client        \
-        procps                \
-        python3               \
-        python3-ipykernel     \
-        tar                   \
-        tigervnc-standalone-server \
-        tigervnc-tools        \
-        tmux                  \
-        vim                   \
-        wget                  \
-        websockify            \
-        x11-xserver-utils     \
-        xauth                 \
-        xfonts-base           \
-        xterm                 \
-        xfce4-terminal        \
-        chromium              \
-        chromium-sandbox  &&  \
+    zypper --non-interactive refresh && \
+    zypper --non-interactive install --no-recommends \
+        ca-certificates \
+        chromium \
+        curl \
+        dbus-1-x11 \
+        file \
+        findutils \
+        git \
+        gzip \
+        iproute2 \
+        less \
+        net-tools \
+        novnc \
+        openssh-clients \
+        patterns-xfce-xfce \
+        procps \
+        python3 \
+        python3-ipykernel \
+        python3-websockify \
+        tar \
+        tigervnc \
+        tmux \
+        vim \
+        wget \
+        xauth \
+        xset \
+        xsetroot \
+        xterm \
+        xfce4-session \
+        xfce4-terminal && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
-    mkdir -p /etc/vnc-novnc /root/.fvwm  &&   \
-    apt-get clean         &&   \
-    rm -rf /var/lib/apt/lists/* /tmp/sshproxy.tar.gz
+    mkdir -p /etc/vnc-novnc && \
+    if [ ! -d /usr/share/novnc ] && [ -d /usr/share/noVNC ]; then \
+        ln -s /usr/share/noVNC /usr/share/novnc; \
+    fi && \
+    zypper --non-interactive clean --all && \
+    rm -rf /tmp/sshproxy.tar.gz /var/cache/zypp/*
 
 COPY container/vnc/vnc-novnc-entrypoint /usr/local/bin/vnc-novnc-entrypoint
 COPY container/kernel/vnc-novnc-jupyter-kernel /usr/local/bin/vnc-novnc-jupyter-kernel
-COPY container/vnc/fvwm3-config /etc/vnc-novnc/fvwm3-config
-COPY container/vnc/fvwm3-config /root/.fvwm/config
-COPY vnc_novnc /opt/vnc-novnc/vnc_novnc
+COPY vnc_novnc /usr/local/lib/vnc-novnc/vnc_novnc
 
 RUN \
     chmod 0755 /usr/local/bin/vnc-novnc-entrypoint /usr/local/bin/vnc-novnc-jupyter-kernel && \
-    chmod -R a+rX /opt/vnc-novnc && \
+    chmod -R a+rX /usr/local/lib/vnc-novnc && \
     printf '%s\n' \
         '#!/bin/sh' \
         'if [ "$(id -u)" = "0" ]; then' \
@@ -81,7 +80,7 @@ ENV \
     VNC_PASSWORD_FILE=/root/.vnc/passwd \
     VNC_PASSWORD_PLAIN_FILE= \
     VNC_XSTARTUP=/root/.vnc/xstartup \
-    VNC_DESKTOP_CMD=fvwm3 \
+    VNC_DESKTOP_CMD=startxfce4 \
     VNC_EXTRA_ARGS= \
     NOVNC_LISTEN=0.0.0.0 \
     NOVNC_PORT=6080 \
@@ -89,7 +88,7 @@ ENV \
     NOVNC_VNC_HOST=127.0.0.1 \
     NOVNC_VNC_PORT= \
     NOVNC_EXTRA_ARGS= \
-    PYTHONPATH=/opt/vnc-novnc
+    PYTHONPATH=/usr/local/lib/vnc-novnc
 
 EXPOSE 6080
 

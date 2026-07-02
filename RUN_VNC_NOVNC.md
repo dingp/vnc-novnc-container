@@ -166,6 +166,12 @@ Use a locally built image:
 scripts/run-vnc-novnc.py --image localhost/debugging-container-vnc-novnc:latest
 ```
 
+Use the openSUSE Leap 15.6 XFCE image:
+
+```sh
+scripts/run-vnc-novnc.py --image ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main
+```
+
 Run outside Jupyter but still print a Jupyter proxy URL:
 
 ```sh

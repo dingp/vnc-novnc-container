@@ -1,4 +1,4 @@
-name: Build VNC/noVNC image
+name: Build VNC/noVNC images
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     tags:
       - "v*"
     paths:
-      - Dockerfile
+      - images/**
       - container/**
       - vnc_novnc/**
       - scripts/**
@@ -15,7 +15,7 @@ on:
 
   pull_request:
     paths:
-      - Dockerfile
+      - images/**
       - container/**
       - vnc_novnc/**
       - scripts/**
@@ -31,13 +31,37 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  CACHE_SCOPE: debian-12
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
-  build_and_push_image:
-    name: Build and push image
+  build_and_push_images:
+    name: Build and push ${{ matrix.name }}
     runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Debian 12 fvwm3
+            dockerfile: images/debian-12/fvwm3/Dockerfile
+            cache_scope: debian-12-fvwm3
+            ci_tag: vnc-novnc-container:debian-12-fvwm3-ci
+            branch_tag_prefix: debian-12-
+            tag_prefix: ""
+            latest: "true"
+            smoke_extra: |
+              command -v fvwm3
+
+          - name: openSUSE Leap 15.6 XFCE
+            dockerfile: images/opensuse-15.6/xfce/Dockerfile
+            cache_scope: opensuse-15.6-xfce
+            ci_tag: vnc-novnc-container:opensuse-15.6-xfce-ci
+            branch_tag_prefix: opensuse-15.6-
+            tag_prefix: opensuse-15.6-
+            latest: "false"
+            smoke_extra: |
+              command -v startxfce4
+              command -v websockify
 
     steps:
       - name: Check out repository
@@ -63,29 +87,37 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch,prefix=debian-12-
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
+            type=ref,event=branch,prefix=${{ matrix.branch_tag_prefix }}
+            type=raw,value=latest,enable=${{ matrix.latest }}
+            type=ref,event=tag,prefix=${{ matrix.tag_prefix }}
 
       - name: Build image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ./${{ matrix.dockerfile }}
           push: false
           load: true
-          tags: vnc-novnc-container:ci
+          tags: ${{ matrix.ci_tag }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
 
       - name: Smoke test image
+        env:
+          IMAGE_TAG: ${{ matrix.ci_tag }}
+          SMOKE_EXTRA: ${{ matrix.smoke_extra }}
         run: |
-          docker run --rm --entrypoint /bin/sh vnc-novnc-container:ci -lc '
+          docker run --rm --entrypoint /bin/sh \
+            -e SMOKE_EXTRA="${SMOKE_EXTRA}" \
+            "${IMAGE_TAG}" -lc '
             python3 -c "import vnc_novnc"
             test -x /usr/local/bin/vnc-novnc-entrypoint
             test -x /usr/local/bin/vnc-novnc-jupyter-kernel
             test -x /usr/local/bin/sshproxy
+            command -v chrome
+            test ! -e /opt/vnc-novnc
+            sh -eu -c "${SMOKE_EXTRA}"
           '
 
       - name: Build and push multi-arch image
@@ -93,10 +125,10 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ./${{ matrix.dockerfile }}
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
