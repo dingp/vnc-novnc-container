@@ -15,6 +15,119 @@ support. The VNC/noVNC helper code is installed in the container under
 `/usr/local/lib/vnc-novnc`; `/opt` is not used so host `/opt` mounts do not hide
 it.
 
+## Quickstart: Jupyter Kernel
+
+1. Log in to <https://jupyter.nersc.gov>, start a Jupyter session, and open a
+   JupyterLab terminal.
+
+2. Clone this repository in the terminal:
+
+```sh
+cd "${HOME}"
+git clone https://github.com/dingp/vnc-novnc-container.git
+cd vnc-novnc-container
+```
+
+3. Pick the distro and desktop variant you want:
+
+```sh
+scripts/install-jupyter-kernel.sh --list-variants
+
+DISTRO=ubuntu24.04
+DESKTOP=xfce
+```
+
+Common choices include `debian12 fvwm3`, `debian12 xfce`, `ubuntu24.04 fvwm3`,
+`ubuntu24.04 xfce`, `alma9 fvwm3`, `alma9 xfce`, and `opensuse15.6 xfce`.
+
+4. Load the NERSC Python module and install the selected kernelspec. `--prepull`
+   downloads the selected image during installation so the first kernel startup
+   does not have to wait for an image pull.
+
+```sh
+module load python
+scripts/install-jupyter-kernel.sh "${DISTRO}" "${DESKTOP}" --prepull --force
+```
+
+To install every supported distro/desktop kernelspec and pre-pull every image:
+
+```sh
+module load python
+scripts/install-jupyter-kernel.sh --all --prepull --force
+```
+
+Pre-pulling all variants can take a while because it downloads every desktop
+image.
+
+5. Refresh JupyterLab if needed, then create a new notebook with the
+   `VNC-DISTRO-DESKTOP` kernel, for example `VNC-ubuntu24.04-xfce`.
+
+The first notebook cell output shows the noVNC login URL and the one-time VNC
+password. If you need to show them again:
+
+```python
+import vnc_novnc
+
+vnc_novnc.display_connection()
+```
+
+Open the noVNC URL in the browser and enter the VNC password. Closing the
+notebook stops the noVNC container.
+
+## Quickstart: Manual noVNC Container
+
+You can also run a desktop container directly from a terminal without installing
+or selecting a Jupyter kernel.
+
+1. In a JupyterLab terminal, clone the repo and choose an image:
+
+```sh
+cd "${HOME}"
+git clone https://github.com/dingp/vnc-novnc-container.git
+cd vnc-novnc-container
+
+IMAGE=ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main
+```
+
+Other published image tags are listed in the image variant table below.
+
+2. Load the NERSC Python module and run the helper:
+
+```sh
+module load python
+PYTHONPATH="${PWD}" scripts/run-vnc-novnc.py \
+  --config scripts/run-vnc-novnc.yaml \
+  --image "${IMAGE}"
+```
+
+The helper pulls the image if needed, starts it with `podman-hpc`, prints a
+Jupyter Server Proxy noVNC URL, and prints a one-time VNC password. Open the URL
+and enter the password.
+
+Example output:
+
+```text
+Image: ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main
+noVNC: https://jupyter.nersc.gov/user/your-user-name/perlmutter-login-node/proxy/49967/vnc.html?port=443&host=jupyter.nersc.gov&path=user%2Fyour-user-name%2Fperlmutter-login-node%2Fproxy%2F49967
+One-time VNC password: AbC123xY
+VNC server port is not exposed on the host.
+```
+
+If you run the helper outside a Jupyter terminal, provide the Jupyter server name
+so it can still print a proxied URL:
+
+```sh
+module load python
+PYTHONPATH="${PWD}" scripts/run-vnc-novnc.py \
+  --config scripts/run-vnc-novnc.yaml \
+  --image "${IMAGE}" \
+  --jupyter-proxy-server perlmutter-login-node
+```
+
+Leave the command running while you use the desktop. Press `Ctrl-C` in the
+terminal to stop the noVNC container. The raw VNC port is not exposed unless you
+explicitly add `--expose-vnc`.
+
 ## Image Variants
 
 Each image variant lives under:
