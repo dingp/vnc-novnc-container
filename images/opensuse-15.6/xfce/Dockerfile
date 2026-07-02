@@ -38,11 +38,13 @@ RUN \
         vim \
         wget \
         xauth \
+        xorg-x11-Xvnc \
         xset \
         xsetroot \
         xterm \
         xfce4-session \
         xfce4-terminal && \
+    ln -sf /usr/lib/vncserver /usr/local/bin/vncserver && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \

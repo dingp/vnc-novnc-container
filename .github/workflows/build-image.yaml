@@ -175,6 +175,8 @@ jobs:
             test -x /usr/local/bin/vnc-novnc-jupyter-kernel
             test -x /usr/local/bin/sshproxy
             command -v chrome
+            command -v vncpasswd
+            command -v vncserver
             test ! -e /opt/vnc-novnc
             sh -eu -c "${SMOKE_EXTRA}"
           '
