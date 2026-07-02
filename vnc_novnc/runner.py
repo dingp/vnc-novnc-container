@@ -65,6 +65,34 @@ def shell_join(argv):
     return " ".join(shlex.quote(str(arg)) for arg in argv)
 
 
+def image_inspect_ok(podman_hpc, image):
+    return (
+        subprocess.call(
+            [podman_hpc, "image", "inspect", image],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        == 0
+    )
+
+
+def prepare_image(podman_hpc, image, pull_policy):
+    if not pull_policy or pull_policy == "never":
+        return 0
+
+    if pull_policy == "missing" and image_inspect_ok(podman_hpc, image):
+        return 0
+
+    print("Pre-pulling image with podman-hpc: {}".format(image), file=sys.stderr, flush=True)
+    return subprocess.call([podman_hpc, "pull", image])
+
+
+def run_pull_policy(pull_policy):
+    if not pull_policy:
+        return ""
+    return "never"
+
+
 def passwd_field(value, fallback):
     value = value or fallback
     value = value.replace(":", "_").replace("\n", "_")
@@ -368,8 +396,9 @@ def add_podman_run_args(args, password_file):
         "VNC_PORT={}".format(args.vnc_port),
     ]
 
-    if args.pull_policy:
-        run_args.append("--pull={}".format(args.pull_policy))
+    run_policy = run_pull_policy(args.pull_policy)
+    if run_policy:
+        run_args.append("--pull={}".format(run_policy))
 
     if args.expose_vnc:
         run_args.extend(
@@ -548,6 +577,10 @@ def main(argv=None):
             print("Command:")
             print(shell_join(run_args))
             return 0
+
+        pull_rc = prepare_image(args.podman_hpc, args.image, args.pull_policy)
+        if pull_rc != 0:
+            return pull_rc
 
         return subprocess.call(run_args)
 

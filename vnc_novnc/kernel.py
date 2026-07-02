@@ -21,7 +21,9 @@ from .runner import (
     jupyter_proxy_url,
     load_yaml_config,
     normalize_config,
+    prepare_image,
     random_password,
+    run_pull_policy,
     shell_join,
 )
 
@@ -186,8 +188,9 @@ def build_podman_args(args, password_file, access_url, host_novnc_port, containe
         "VNC_PORT={}".format(args.vnc_port),
     ]
 
-    if args.pull_policy:
-        run_args.append("--pull={}".format(args.pull_policy))
+    run_policy = run_pull_policy(args.pull_policy)
+    if run_policy:
+        run_args.append("--pull={}".format(run_policy))
 
     if args.userns_keep_id:
         add_keep_id_args(run_args)
@@ -328,6 +331,10 @@ def main(argv=None):
         if args.dry_run:
             print(shell_join(run_args))
             return 0
+
+        pull_rc = prepare_image(args.podman_hpc, args.image, args.pull_policy)
+        if pull_rc != 0:
+            return pull_rc
 
         return run_podman_kernel(run_args, args.podman_hpc, container_name)
 
