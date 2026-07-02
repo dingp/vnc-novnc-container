@@ -65,6 +65,28 @@ def shell_join(argv):
     return " ".join(shlex.quote(str(arg)) for arg in argv)
 
 
+def passwd_field(value, fallback):
+    value = value or fallback
+    value = value.replace(":", "_").replace("\n", "_")
+    return value or fallback
+
+
+def keep_id_passwd_entry(shell="/bin/bash"):
+    uid = os.getuid()
+    gid = os.getgid()
+    username = passwd_field(
+        os.environ.get("USER") or os.environ.get("LOGNAME"),
+        "user{}".format(uid),
+    )
+    home = passwd_field(os.environ.get("HOME"), "/")
+    return "{}:x:{}:{}:{}:{}:{}".format(username, uid, gid, username, home, shell)
+
+
+def add_keep_id_args(run_args):
+    run_args.append("--userns=keep-id")
+    run_args.extend(["--passwd-entry", keep_id_passwd_entry()])
+
+
 def strip_yaml_comment(line):
     quote = None
     escaped = False
@@ -358,9 +380,11 @@ def add_podman_run_args(args, password_file):
         )
 
     if args.userns_keep_id:
-        run_args.append("--userns=keep-id")
+        add_keep_id_args(run_args)
     elif args.userns:
         run_args.append("--userns={}".format(args.userns))
+        if args.userns == "keep-id":
+            run_args.extend(["--passwd-entry", keep_id_passwd_entry()])
 
     group_add = list(args.group_add)
     if args.keep_groups and "keep-groups" not in group_add:

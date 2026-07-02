@@ -10,13 +10,41 @@ RUN \
     set -eu; \
     case "${SSHPROXY_ARCH:-${TARGETARCH:-amd64}}" in \
         amd64|x86_64|linux-x86_64) sshproxy_arch=linux-x86_64 ;; \
-        *) echo "Ubuntu Chrome variant currently supports amd64 only: ${SSHPROXY_ARCH:-${TARGETARCH:-}}" >&2; exit 1 ;; \
+        arm64|aarch64|linux-aarch64) sshproxy_arch=linux-aarch64 ;; \
+        *) echo "Unsupported sshproxy architecture: ${SSHPROXY_ARCH:-${TARGETARCH:-}}" >&2; exit 1 ;; \
     esac; \
     sshproxy_url="https://portal.nersc.gov/cfs/mfa/sshproxy-${SSHPROXY_VERSION}-${sshproxy_arch}.tar.gz"; \
     apt-get update && \
     apt-get install --yes --no-install-recommends \
         ca-certificates \
+        bash \
         curl \
+        debian-archive-keyring && \
+    printf '%s\n' \
+        'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main' \
+        'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian-security bookworm-security main' \
+        > /etc/apt/sources.list.d/debian-bookworm.list && \
+    printf '%s\n' \
+        'Package: *' \
+        'Pin: release n=bookworm' \
+        'Pin-Priority: 100' \
+        '' \
+        'Package: *' \
+        'Pin: release n=bookworm-security' \
+        'Pin-Priority: 100' \
+        '' \
+        'Package: chromium chromium-common chromium-sandbox' \
+        'Pin: release n=bookworm-security' \
+        'Pin-Priority: 990' \
+        '' \
+        'Package: chromium chromium-common chromium-sandbox' \
+        'Pin: release n=bookworm' \
+        'Pin-Priority: 990' \
+        > /etc/apt/preferences.d/debian-chromium && \
+    apt-get update && \
+    apt-get install --yes --no-install-recommends \
+        chromium \
+        chromium-sandbox \
         dbus-x11 \
         file \
         findutils \
@@ -31,6 +59,7 @@ RUN \
         python3 \
         python3-ipykernel \
         tar \
+        thunar \
         tigervnc-standalone-server \
         tigervnc-tools \
         tmux \
@@ -42,14 +71,14 @@ RUN \
         xfonts-base \
         xterm \
         xfce4-terminal && \
-    curl --fail --location --show-error https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb --output /tmp/google-chrome.deb && \
-    apt-get install --yes --no-install-recommends /tmp/google-chrome.deb && \
     curl --fail --location --show-error "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc /root/.fvwm && \
+    sed -i 's#^\(root:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:\).*#\1/bin/bash#' /etc/passwd && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/google-chrome.deb /tmp/sshproxy.tar.gz
+    rm -f /etc/apt/sources.list.d/debian-bookworm.list /etc/apt/preferences.d/debian-chromium && \
+    rm -rf /var/lib/apt/lists/* /tmp/sshproxy.tar.gz
 
 COPY container/vnc/vnc-novnc-entrypoint /usr/local/bin/vnc-novnc-entrypoint
 COPY container/kernel/vnc-novnc-jupyter-kernel /usr/local/bin/vnc-novnc-jupyter-kernel
@@ -63,11 +92,11 @@ RUN \
     printf '%s\n' \
         '#!/bin/sh' \
         'if [ "$(id -u)" = "0" ]; then' \
-        '    exec google-chrome --no-sandbox "$@"' \
+        '    exec /usr/bin/chromium --no-sandbox "$@"' \
         'fi' \
-        'exec google-chrome "$@"' \
-        > /usr/local/bin/chrome && \
-    chmod 0755 /usr/local/bin/chrome
+        'exec /usr/bin/chromium "$@"' \
+        > /usr/local/bin/chromium && \
+    chmod 0755 /usr/local/bin/chromium
 
 ENV \
     VNC_DISPLAY=1 \
@@ -88,6 +117,7 @@ ENV \
     NOVNC_VNC_HOST=127.0.0.1 \
     NOVNC_VNC_PORT= \
     NOVNC_EXTRA_ARGS= \
+    SHELL=/bin/bash \
     PYTHONPATH=/usr/local/lib/vnc-novnc
 
 EXPOSE 6080

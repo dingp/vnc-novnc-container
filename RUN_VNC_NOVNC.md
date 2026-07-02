@@ -14,6 +14,9 @@ The helper script:
 - Publishes only the noVNC port by default.
 - Does not expose the raw VNC server port unless `EXPOSE_VNC=1` is set.
 - Prints the noVNC access URL and one-time VNC password before starting the container.
+- When `keep-id` user namespaces are enabled, passes a `podman-hpc`
+  `--passwd-entry` so the host user resolves to `/bin/bash` inside the
+  container.
 - Prints a Jupyter Server Proxy URL when it can determine the Jupyter user/server path.
 
 Inside the container, the VNC server listens on `VNC_PORT` and noVNC listens on `NOVNC_PORT`. On the host, only noVNC is exposed by default.
@@ -216,6 +219,9 @@ Run with host identity/group handling:
 ```sh
 scripts/run-vnc-novnc.py --userns=keep-id --group-add=keep-groups
 ```
+
+With `keep-id`, the Python helper also sets the generated container passwd entry
+for the host UID to use `/bin/bash`.
 
 The shorthand form is equivalent:
 

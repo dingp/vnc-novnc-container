@@ -15,6 +15,7 @@ RUN \
     dnf config-manager --set-enabled crb && \
     dnf -y install --allowerasing --setopt=install_weak_deps=False \
         ca-certificates \
+        bash \
         chromium \
         curl \
         dbus-x11 \
@@ -32,6 +33,7 @@ RUN \
         python3-pip \
         python3-websockify \
         tar \
+        Thunar \
         tigervnc \
         tigervnc-server \
         tmux \
@@ -51,6 +53,7 @@ RUN \
     tar -xzf /tmp/sshproxy.tar.gz -C /usr/local/bin sshproxy && \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc && \
+    sed -i 's#^\(root:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:\).*#\1/bin/bash#' /etc/passwd && \
     dnf clean all && \
     rm -rf /tmp/sshproxy.tar.gz /var/cache/dnf
 
@@ -64,11 +67,11 @@ RUN \
     printf '%s\n' \
         '#!/bin/sh' \
         'if [ "$(id -u)" = "0" ]; then' \
-        '    exec chromium-browser --no-sandbox "$@"' \
+        '    exec /usr/bin/chromium-browser --no-sandbox "$@"' \
         'fi' \
-        'exec chromium-browser "$@"' \
-        > /usr/local/bin/chrome && \
-    chmod 0755 /usr/local/bin/chrome
+        'exec /usr/bin/chromium-browser "$@"' \
+        > /usr/local/bin/chromium && \
+    chmod 0755 /usr/local/bin/chromium
 
 ENV \
     VNC_DISPLAY=1 \
@@ -89,6 +92,7 @@ ENV \
     NOVNC_VNC_HOST=127.0.0.1 \
     NOVNC_VNC_PORT= \
     NOVNC_EXTRA_ARGS= \
+    SHELL=/bin/bash \
     PYTHONPATH=/usr/local/lib/vnc-novnc
 
 EXPOSE 6080

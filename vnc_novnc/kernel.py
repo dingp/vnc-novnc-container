@@ -16,6 +16,8 @@ from .runner import (
     DEFAULT_PASSWORD_LENGTH,
     DEFAULT_VNC_PORT,
     build_defaults,
+    add_keep_id_args,
+    keep_id_passwd_entry,
     jupyter_proxy_url,
     load_yaml_config,
     normalize_config,
@@ -188,9 +190,11 @@ def build_podman_args(args, password_file, access_url, host_novnc_port, containe
         run_args.append("--pull={}".format(args.pull_policy))
 
     if args.userns_keep_id:
-        run_args.append("--userns=keep-id")
+        add_keep_id_args(run_args)
     elif args.userns:
         run_args.append("--userns={}".format(args.userns))
+        if args.userns == "keep-id":
+            run_args.extend(["--passwd-entry", keep_id_passwd_entry()])
 
     group_add = list(args.group_add)
     if args.keep_groups and "keep-groups" not in group_add:

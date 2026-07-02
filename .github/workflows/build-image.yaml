@@ -174,9 +174,12 @@ jobs:
             test -x /usr/local/bin/vnc-novnc-entrypoint
             test -x /usr/local/bin/vnc-novnc-jupyter-kernel
             test -x /usr/local/bin/sshproxy
-            command -v chrome
+            command -v chromium
+            command -v thunar
             command -v vncpasswd
             command -v vncserver
+            test "$(getent passwd root | cut -d: -f7)" = "/bin/bash"
+            test "${SHELL}" = "/bin/bash"
             test ! -e /opt/vnc-novnc
             sh -eu -c "${SMOKE_EXTRA}"
           '

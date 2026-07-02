@@ -70,6 +70,8 @@ The Python wrapper:
   terminate the wrapper before the in-container kernel exits cleanly.
 - Uses `podman-hpc run --rm --jupyter`.
 - Passes `--userns=keep-id` and `--group-add=keep-groups` from the YAML config.
+- Adds a `--passwd-entry` for the host UID when `keep-id` is active so the
+  notebook user resolves to `/bin/bash` inside the container.
 - Mounts `$SCRATCH` and `$CFS` from the YAML config.
 - Passes non-secret noVNC connection metadata into the container.
 
