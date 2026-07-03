@@ -439,10 +439,11 @@ Restart or refresh JupyterLab if the new kernel does not appear immediately.
 
 ## Kernel Behavior
 
-When Jupyter starts a VNC/noVNC kernel, the host wrapper runs:
+When Jupyter starts a VNC/noVNC kernel, the host wrapper runs the Python
+interpreter that installed the kernelspec:
 
 ```sh
-python3 -m vnc_novnc.kernel --config "{resource_dir}/vnc-novnc.yaml" -f "{connection_file}"
+/path/to/install/python -m vnc_novnc.kernel --config "{resource_dir}/vnc-novnc.yaml" -f "{connection_file}"
 ```
 
 The wrapper:

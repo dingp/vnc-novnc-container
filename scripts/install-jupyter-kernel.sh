@@ -131,6 +131,7 @@ set_variant_metadata() {
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "${script_dir}/.." && pwd)"
+install_python="$(python3 -c 'import sys; print(sys.executable)')"
 
 distro="debian12"
 desktop="fvwm3"
@@ -265,7 +266,7 @@ if [[ "${all_variants}" -eq 1 ]]; then
 fi
 
 if [[ "${pip_install}" -eq 1 && "${prepull_only}" -ne 1 ]]; then
-    python3 -m pip install --user -e "${repo_dir}"
+    "${install_python}" -m pip install --user -e "${repo_dir}"
 fi
 
 tmpdir="$(mktemp -d)"
@@ -391,13 +392,25 @@ with open(kernel_yaml, "w") as handle:
     handle.writelines(lines)
 PY
 
-    if [[ "${source_wrapper}" -eq 1 ]]; then
-        cat > "${tmpdir}/${install_kernel_name}/kernel-wrapper" <<EOF
-#!/bin/sh
-export PYTHONPATH="${repo_dir}:\${PYTHONPATH:-}"
-exec python3 -m vnc_novnc.kernel "\$@"
-EOF
-    fi
+    "${install_python}" - "${tmpdir}/${install_kernel_name}/kernel-wrapper" "${install_python}" "${repo_dir}" "${source_wrapper}" <<'PY'
+import shlex
+import sys
+
+wrapper_path, python_executable, repo_dir, source_wrapper = sys.argv[1:5]
+with open(wrapper_path, "w") as handle:
+    handle.write("#!/bin/sh\n")
+    if source_wrapper == "1":
+        handle.write(
+            "export PYTHONPATH={}:\"${{PYTHONPATH:-}}\"\n".format(
+                shlex.quote(repo_dir)
+            )
+        )
+    handle.write(
+        "exec {} -m vnc_novnc.kernel \"$@\"\n".format(
+            shlex.quote(python_executable)
+        )
+    )
+PY
 
     chmod 0755 "${tmpdir}/${install_kernel_name}/kernel-wrapper"
     mkdir -p "$(dirname "${kernel_dst}")"

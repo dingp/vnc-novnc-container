@@ -7,18 +7,12 @@ on:
       - images/**
       - container/**
       - vnc_novnc/**
-      - scripts/**
-      - pyproject.toml
-      - .github/workflows/build-image.yaml
 
   pull_request:
     paths:
       - images/**
       - container/**
       - vnc_novnc/**
-      - scripts/**
-      - pyproject.toml
-      - .github/workflows/build-image.yaml
 
   workflow_dispatch:
 
