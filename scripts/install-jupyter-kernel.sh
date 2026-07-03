@@ -11,13 +11,14 @@ DISTRO and DESKTOP select which published image tag the installed kernel uses.
 They may also be passed with --distro and --desktop.
 
 Options:
-  --distro DISTRO         Image distro. Values: debian12, ubuntu24.04,
+  --distro DISTRO         Image distro. Values: debian12, ubuntu24.04, ubuntu,
                           alma9, opensuse15.6. Dash aliases such as
                           debian-12 and opensuse-15.6 are also accepted.
                           Default: debian12
   --desktop DESKTOP       Desktop environment. Values depend on distro:
                           debian12: fvwm3, xfce
                           ubuntu24.04: fvwm3, xfce
+                          ubuntu: gpu-xfce
                           alma9: fvwm3, xfce
                           opensuse15.6: xfce
                           Default: fvwm3
@@ -31,7 +32,8 @@ Options:
   --source-wrapper        Install a wrapper that imports vnc_novnc from this checkout.
   --all                   Install one kernelspec for every supported variant.
   --prepull               Run "podman-hpc pull IMAGE" for each installed image.
-  --podman-hpc COMMAND    podman-hpc command used by --prepull.
+  --prepull-only          Only run "podman-hpc pull IMAGE"; do not install kernelspecs.
+  --podman-hpc COMMAND    podman-hpc command used by --prepull and --prepull-only.
                           Default: ${PODMAN_HPC:-podman-hpc}
   --list-variants         Print supported DISTRO/DESKTOP combinations.
   --force                 Replace an existing kernelspec directory.
@@ -46,6 +48,7 @@ Supported variants:
   debian12      xfce   ghcr.io/dingp/vnc-novnc-container:debian-12-xfce-main
   ubuntu24.04   fvwm3  ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-fvwm3-main
   ubuntu24.04   xfce   ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main
+  ubuntu        gpu-xfce ghcr.io/dingp/vnc-novnc-container:ubuntu-gpu-xfce-main
   alma9         fvwm3  ghcr.io/dingp/vnc-novnc-container:alma-9-fvwm3-main
   alma9         xfce   ghcr.io/dingp/vnc-novnc-container:alma-9-xfce-main
   opensuse15.6  xfce   ghcr.io/dingp/vnc-novnc-container:opensuse-15.6-main
@@ -55,6 +58,7 @@ EOF
 canonical_distro() {
     case "$1" in
         debian12|debian-12) printf 'debian12\n' ;;
+        ubuntu|cuda|cuda13|cuda-13) printf 'ubuntu\n' ;;
         ubuntu24.04|ubuntu-24.04) printf 'ubuntu24.04\n' ;;
         alma9|alma-9|almalinux9|almalinux-9) printf 'alma9\n' ;;
         opensuse15.6|opensuse-15.6|opensuseleap15.6|opensuse-leap-15.6) printf 'opensuse15.6\n' ;;
@@ -68,9 +72,10 @@ canonical_distro() {
 
 canonical_desktop() {
     case "$1" in
-        fvwm3|xfce) printf '%s\n' "$1" ;;
+        fvwm3|xfce|gpu-xfce) printf '%s\n' "$1" ;;
         XFCE) printf 'xfce\n' ;;
         FVWM3) printf 'fvwm3\n' ;;
+        GPU-XFCE|GPU_XFCE) printf 'gpu-xfce\n' ;;
         *)
             printf 'Unsupported desktop: %s\n\n' "$1" >&2
             list_variants >&2
@@ -80,6 +85,8 @@ canonical_desktop() {
 }
 
 set_variant_metadata() {
+    extra_podman_args=()
+
     case "${distro}:${desktop}" in
         debian12:fvwm3)
             image="ghcr.io/dingp/vnc-novnc-container:debian-12-main"
@@ -96,6 +103,11 @@ set_variant_metadata() {
         ubuntu24.04:xfce)
             image="ghcr.io/dingp/vnc-novnc-container:ubuntu-24.04-xfce-main"
             variant_slug="ubuntu24.04-xfce"
+            ;;
+        ubuntu:gpu-xfce)
+            image="ghcr.io/dingp/vnc-novnc-container:ubuntu-gpu-xfce-main"
+            variant_slug="ubuntu-gpu-xfce"
+            extra_podman_args=("--gpu")
             ;;
         alma9:fvwm3)
             image="ghcr.io/dingp/vnc-novnc-container:alma-9-fvwm3-main"
@@ -130,6 +142,7 @@ source_wrapper=0
 force=0
 all_variants=0
 prepull=0
+prepull_only=0
 podman_hpc="${PODMAN_HPC:-podman-hpc}"
 kernel_name_set=0
 display_name_set=0
@@ -137,6 +150,7 @@ distro_set=0
 desktop_set=0
 positionals=()
 prepulled_images=()
+extra_podman_args=()
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -178,6 +192,11 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --prepull)
             prepull=1
+            shift
+            ;;
+        --prepull-only)
+            prepull=1
+            prepull_only=1
             shift
             ;;
         --podman-hpc)
@@ -245,7 +264,7 @@ if [[ "${all_variants}" -eq 1 ]]; then
     fi
 fi
 
-if [[ "${pip_install}" -eq 1 ]]; then
+if [[ "${pip_install}" -eq 1 && "${prepull_only}" -ne 1 ]]; then
     python3 -m pip install --user -e "${repo_dir}"
 fi
 
@@ -316,11 +335,12 @@ install_one() {
     cp "${kernel_src}/kernel-wrapper" "${tmpdir}/${install_kernel_name}/"
     cp "${kernel_src}/vnc-novnc.yaml" "${tmpdir}/${install_kernel_name}/"
 
-    python3 - "${tmpdir}/${install_kernel_name}/kernel.json" "${tmpdir}/${install_kernel_name}/vnc-novnc.yaml" "${install_display_name}" "${image}" <<'PY'
+    python3 - "${tmpdir}/${install_kernel_name}/kernel.json" "${tmpdir}/${install_kernel_name}/vnc-novnc.yaml" "${install_display_name}" "${image}" "${extra_podman_args[@]}" <<'PY'
 import json
 import sys
 
 kernel_json, kernel_yaml, display_name, image = sys.argv[1:5]
+extra_podman_args = sys.argv[5:]
 pull_policy = "missing"
 with open(kernel_json) as handle:
     data = json.load(handle)
@@ -337,11 +357,35 @@ def set_yaml_scalar(lines, key, value):
             return
     lines.insert(0, replacement)
 
+def set_yaml_list(lines, key, values):
+    start = None
+    end = None
+    for index, line in enumerate(lines):
+        if line.startswith(f"{key}:"):
+            start = index
+            end = index + 1
+            while end < len(lines) and lines[end].startswith("  - "):
+                end += 1
+            break
+
+    replacement = []
+    if values:
+        replacement = [f"{key}:\n"]
+        replacement.extend(f"  - {value}\n" for value in values)
+
+    if start is None:
+        if replacement:
+            lines.extend(["\n"] + replacement)
+        return
+
+    lines[start:end] = replacement
+
 with open(kernel_yaml) as handle:
     lines = handle.readlines()
 
 set_yaml_scalar(lines, "image", image)
 set_yaml_scalar(lines, "pull_policy", pull_policy)
+set_yaml_list(lines, "extra_podman_args", extra_podman_args)
 
 with open(kernel_yaml, "w") as handle:
     handle.writelines(lines)
@@ -366,11 +410,41 @@ EOF
     printf 'Config file: %s\n' "${kernel_dst}/vnc-novnc.yaml"
 }
 
+prepull_one() {
+    local pull_distro="$1"
+    local pull_desktop="$2"
+
+    distro="$(canonical_distro "${pull_distro}")"
+    desktop="$(canonical_desktop "${pull_desktop}")"
+    set_variant_metadata
+    prepull_image "${image}"
+    printf 'Pre-pulled image for %s %s: %s\n' "${distro}" "${desktop}" "${image}"
+}
+
+if [[ "${prepull_only}" -eq 1 ]]; then
+    if [[ "${all_variants}" -eq 1 ]]; then
+        prepull_one debian12 fvwm3
+        prepull_one debian12 xfce
+        prepull_one ubuntu24.04 fvwm3
+        prepull_one ubuntu24.04 xfce
+        prepull_one ubuntu gpu-xfce
+        prepull_one alma9 fvwm3
+        prepull_one alma9 xfce
+        prepull_one opensuse15.6 xfce
+    else
+        prepull_one "${distro}" "${desktop}"
+    fi
+
+    printf 'Image pre-pull complete.\n'
+    exit 0
+fi
+
 if [[ "${all_variants}" -eq 1 ]]; then
     install_one debian12 fvwm3
     install_one debian12 xfce
     install_one ubuntu24.04 fvwm3
     install_one ubuntu24.04 xfce
+    install_one ubuntu gpu-xfce
     install_one alma9 fvwm3
     install_one alma9 xfce
     install_one opensuse15.6 xfce

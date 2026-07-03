@@ -75,6 +75,15 @@ jobs:
             tag_prefix: ubuntu-24.04-xfce-
             latest: "false"
 
+          - name: Ubuntu CUDA gpu-xfce
+            dockerfile: images/ubuntu/gpu-xfce/Dockerfile
+            cache_scope: ubuntu-gpu-xfce
+            platforms: linux/amd64
+            ci_tag: vnc-novnc-container:ubuntu-gpu-xfce-ci
+            branch_tag_prefix: ubuntu-gpu-xfce-
+            tag_prefix: ubuntu-gpu-xfce-
+            latest: "false"
+
           - name: AlmaLinux 9 fvwm3
             dockerfile: images/alma-9/fvwm3/Dockerfile
             cache_scope: alma-9-fvwm3
@@ -154,6 +163,9 @@ jobs:
             test -x /usr/local/bin/sshproxy
             command -v chromium
             command -v curl
+            command -v dbus-launch
+            command -v dbus-run-session
+            command -v fc-match
             command -v gcc
             command -v gdb
             command -v git
@@ -173,6 +185,8 @@ jobs:
             command -v "${VNC_DESKTOP_CMD}"
             test "$(getent passwd root | cut -d: -f7)" = "/bin/bash"
             test "${SHELL}" = "/bin/bash"
+            test -s /etc/fonts/fonts.conf
+            fc-match sans
             test ! -e /opt/vnc-novnc
           '
 

@@ -142,7 +142,9 @@ def parse_args(argv):
     config_parser.add_argument("--config", default=os.environ.get("VNC_NOVNC_CONFIG", ""))
     config_args, _ = config_parser.parse_known_args(argv)
     defaults = load_defaults(config_args.config)
-    return build_parser(defaults).parse_args(argv)
+    args = build_parser(defaults).parse_args(argv)
+    args.extra_podman_args = list(defaults["extra_podman_args"])
+    return args
 
 
 def kernel_args(args):
@@ -216,6 +218,11 @@ def build_podman_args(args, password_file, access_url, host_novnc_port, containe
 
     for mount in args.mount:
         run_args.extend(["--mount", mount])
+
+    extra_args = list(getattr(args, "extra_podman_args", []))
+    if extra_args and extra_args[0] == "--":
+        extra_args = extra_args[1:]
+    run_args.extend(extra_args)
 
     run_args.append(args.image)
     run_args.extend(["vnc-novnc-jupyter-kernel"])

@@ -1,4 +1,7 @@
-FROM opensuse/leap:15.6
+ARG CUDA_IMAGE=nvcr.io/nvidia/cuda:13.3.0-cudnn-devel-ubuntu24.04
+FROM ${CUDA_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 ARG TARGETARCH
 ARG SSHPROXY_VERSION=2.1.2
@@ -12,66 +15,109 @@ RUN \
         *) echo "Unsupported sshproxy architecture: ${SSHPROXY_ARCH:-${TARGETARCH:-}}" >&2; exit 1 ;; \
     esac; \
     sshproxy_url="https://portal.nersc.gov/cfs/mfa/sshproxy-${SSHPROXY_VERSION}-${sshproxy_arch}.tar.gz"; \
-    zypper --non-interactive refresh && \
-    zypper --non-interactive install --no-recommends \
+    apt-get update && \
+    apt-get install --yes --no-install-recommends \
         ca-certificates \
         bash \
-        chromium \
         curl \
-        dbus-1 \
-        dbus-1-x11 \
-        dejavu-fonts \
+        debian-archive-keyring && \
+    printf '%s\n' \
+        'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main' \
+        'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian-security bookworm-security main' \
+        > /etc/apt/sources.list.d/debian-bookworm.list && \
+    printf '%s\n' \
+        'Package: *' \
+        'Pin: release n=bookworm' \
+        'Pin-Priority: 100' \
+        '' \
+        'Package: *' \
+        'Pin: release n=bookworm-security' \
+        'Pin-Priority: 100' \
+        '' \
+        'Package: chromium chromium-common chromium-sandbox' \
+        'Pin: release n=bookworm-security' \
+        'Pin-Priority: 990' \
+        '' \
+        'Package: chromium chromium-common chromium-sandbox' \
+        'Pin: release n=bookworm' \
+        'Pin-Priority: 990' \
+        > /etc/apt/preferences.d/debian-chromium && \
+    apt-get update && \
+    apt-get install --yes --no-install-recommends \
+        chromium \
+        chromium-sandbox \
+        dbus \
+        dbus-user-session \
+        dbus-x11 \
         file \
         findutils \
         fontconfig \
+        fonts-dejavu \
+        fonts-liberation \
+        fonts-noto-color-emoji \
+        fonts-noto-core \
         gcc \
         gdb \
         git \
-        gzip \
         iproute2 \
         less \
-        liberation-fonts \
+        libegl1 \
+        libegl-mesa0 \
+        libgl1 \
+        libgl1-mesa-dri \
+        libgles2 \
+        libglu1-mesa \
+        libglvnd0 \
+        libglx0 \
+        libglx-mesa0 \
+        libosmesa6 \
+        libvulkan1 \
+        libx11-6 \
+        libxau6 \
+        libxcb1 \
+        libxcomposite1 \
+        libxcursor1 \
+        libxdamage1 \
+        libxdmcp6 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxinerama1 \
+        libxrandr2 \
+        libxrender1 \
         make \
+        mesa-utils \
+        mesa-utils-extra \
         net-tools \
-        nfs-client \
+        nfs-common \
         nmap \
-        noto-coloremoji-fonts \
-        noto-sans-fonts \
-        noto-serif-fonts \
         novnc \
-        openssh-clients \
-        patterns-xfce-xfce \
+        openssh-client \
         procps \
         python3 \
         python3-ipykernel \
-        python3-websockify \
         tar \
         thunar \
-        tigervnc \
+        tigervnc-standalone-server \
+        tigervnc-tools \
         tmux \
         tcpdump \
+        tshark \
         vim \
+        vulkan-tools \
         wget \
-        which \
-        wireshark \
+        websockify \
+        x11-xserver-utils \
         xauth \
-        xorg-x11-Xvnc \
-        xset \
-        xsetroot \
+        xfonts-base \
         xterm \
+        xfce4-panel \
         xfce4-session \
+        xfce4-settings \
         xfce4-terminal \
-        zlib-devel && \
-    ln -sf /usr/lib/vncserver /usr/local/bin/vncserver && \
-    mkdir -p /etc/X11/xinit && \
-    printf '%s\n' \
-        '#!/bin/sh' \
-        'if [ "$#" -gt 0 ]; then' \
-        '    exec "$@"' \
-        'fi' \
-        'exec startxfce4' \
-        > /etc/X11/xinit/Xsession && \
-    chmod 0755 /etc/X11/xinit/Xsession && \
+        xfdesktop4 \
+        xfwm4 \
+        zlib1g-dev && \
     curl --fail --location --show-error \
         --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 300 --connect-timeout 30 \
         "${sshproxy_url}" --output /tmp/sshproxy.tar.gz && \
@@ -79,11 +125,9 @@ RUN \
     chmod 0755 /usr/local/bin/sshproxy && \
     mkdir -p /etc/vnc-novnc && \
     sed -i 's#^\(root:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:\).*#\1/bin/bash#' /etc/passwd && \
-    if [ ! -d /usr/share/novnc ] && [ -d /usr/share/noVNC ]; then \
-        ln -s /usr/share/noVNC /usr/share/novnc; \
-    fi && \
-    zypper --non-interactive clean --all && \
-    rm -rf /tmp/sshproxy.tar.gz /var/cache/zypp/*
+    apt-get clean && \
+    rm -f /etc/apt/sources.list.d/debian-bookworm.list /etc/apt/preferences.d/debian-chromium && \
+    rm -rf /var/lib/apt/lists/* /tmp/sshproxy.tar.gz
 
 COPY container/vnc/vnc-novnc-entrypoint /usr/local/bin/vnc-novnc-entrypoint
 COPY container/kernel/vnc-novnc-jupyter-kernel /usr/local/bin/vnc-novnc-jupyter-kernel
@@ -114,6 +158,10 @@ RUN \
     chmod 0755 /usr/local/bin/chromium
 
 ENV \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display \
+    CUDA_PATH=/usr/local/cuda \
+    QT_X11_NO_MITSHM=1 \
     VNC_DISPLAY=1 \
     VNC_PORT=5901 \
     VNC_GEOMETRY=1280x800 \

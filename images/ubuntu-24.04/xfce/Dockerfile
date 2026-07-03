@@ -45,9 +45,16 @@ RUN \
     apt-get install --yes --no-install-recommends \
         chromium \
         chromium-sandbox \
+        dbus \
+        dbus-user-session \
         dbus-x11 \
         file \
         findutils \
+        fontconfig \
+        fonts-dejavu \
+        fonts-liberation \
+        fonts-noto-color-emoji \
+        fonts-noto-core \
         gcc \
         gdb \
         git \
@@ -103,10 +110,22 @@ RUN \
     chmod -R a+rX /usr/local/lib/vnc-novnc && \
     printf '%s\n' \
         '#!/bin/sh' \
+        'dbus_session_valid=0' \
+        'case "${DBUS_SESSION_BUS_ADDRESS:-}" in' \
+        '    unix:*|tcp:*|nonce-tcp:*) dbus_session_valid=1 ;;' \
+        'esac' \
+        'chromium_sandbox_args=' \
+        'chromium_default_args="--disable-gpu --disable-dev-shm-usage --password-store=basic --no-first-run"' \
         'if [ "$(id -u)" = "0" ]; then' \
-        '    exec /usr/bin/chromium --no-sandbox "$@"' \
+        '    chromium_sandbox_args=--no-sandbox' \
         'fi' \
-        'exec /usr/bin/chromium "$@"' \
+        'if [ "${dbus_session_valid}" != "1" ] && command -v dbus-run-session >/dev/null 2>&1; then' \
+        '    exec dbus-run-session -- /usr/bin/chromium ${chromium_sandbox_args} ${chromium_default_args} "$@"' \
+        'fi' \
+        'if [ "${dbus_session_valid}" != "1" ] && command -v dbus-launch >/dev/null 2>&1; then' \
+        '    exec dbus-launch --exit-with-session /usr/bin/chromium ${chromium_sandbox_args} ${chromium_default_args} "$@"' \
+        'fi' \
+        'exec /usr/bin/chromium ${chromium_sandbox_args} ${chromium_default_args} "$@"' \
         > /usr/local/bin/chromium && \
     chmod 0755 /usr/local/bin/chromium
 
